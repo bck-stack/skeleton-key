@@ -1,5 +1,5 @@
 /**
- * Input validation (requirements 2.1 to 2.6). Pure: no fetch, never throws.
+ * Input validation (requirements 2.1 to 2.7). Pure: no fetch, never throws.
  *
  * Result: `{ ok: true, value }` with defaults applied, or
  * `{ ok: false, param, message }` where `message` starts with the parameter name.
@@ -10,6 +10,16 @@ const DECIMAL_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+/**
+ * Whether a validated value counts for `request.requireOneOf`: present, and for
+ * a string, holding at least one non-whitespace character.
+ * @param {unknown} v
+ */
+function isFilled(v) {
+  if (v === undefined || v === null) return false;
+  return typeof v !== "string" || v.trim() !== "";
+}
 
 /** @param {unknown} v */
 function isPlainObject(v) {
@@ -131,6 +141,14 @@ export function validateInput(contract, input, { coerce = false } = {}) {
       const checked = validateParamValue(name, spec, given, { coerce });
       if (!checked.ok) return { ok: false, param: name, message: checked.message };
       value[name] = checked.value;
+    }
+    const oneOf = contract.request?.requireOneOf;
+    if (Array.isArray(oneOf) && oneOf.length > 0 && !oneOf.some((name) => isFilled(value[name]))) {
+      return {
+        ok: false,
+        param: oneOf[0],
+        message: `${oneOf[0]}: give at least one of ${oneOf.join(", ")}`,
+      };
     }
     return { ok: true, value };
   } catch {

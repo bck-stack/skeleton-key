@@ -149,6 +149,19 @@ describe("source.schema.json (req 9.3)", () => {
     }
   });
 
+  it("accepts request.requireOneOf and rejects an empty list, a duplicate and a non-name", () => {
+    for (const ok of [["q"], ["q", "firm_name"]]) {
+      const c = minimal();
+      c.request.requireOneOf = ok;
+      expect(validate(c), JSON.stringify(ok)).toBe(true);
+    }
+    for (const bad of [[], ["q", "q"], ["Q"], [1], "q", null]) {
+      const c = minimal();
+      c.request.requireOneOf = bad;
+      expect(validate(c), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
   it("accepts the isoDate transform", () => {
     const c = minimal();
     c.response.fields.id.transform = ["trim", "isoDate"];

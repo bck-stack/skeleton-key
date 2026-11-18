@@ -1,0 +1,137 @@
+{
+  "$schema": "../../../packages/core/schema/source.schema.json",
+  "source": "nominatim-search",
+  "tool": {
+    "name": "places_search",
+    "description": "Returns up to 5 places that match a text (display name, latitude and longitude in degrees, kind), best match first, from OpenStreetMap. Use when you need coordinates for a place name such as a city. An empty list means no place was found. Do not use for street addresses or to find a name from coordinates."
+  },
+  "params": {
+    "query": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 100,
+      "description": "Place name, 2 to 100 characters, for example a city. Adding the country helps.",
+      "example": "Istanbul"
+    },
+    "limit": {
+      "type": "integer",
+      "default": 5,
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Maximum number of places to return, 1 to 5.",
+      "example": 5
+    }
+  },
+  "request": {
+    "baseUrl": "https://nominatim.openstreetmap.org/search",
+    "staticQuery": {
+      "format": "jsonv2",
+      "addressdetails": "0"
+    },
+    "query": [
+      {
+        "key": "q",
+        "template": "{query}"
+      },
+      {
+        "key": "limit",
+        "template": "{limit}"
+      }
+    ],
+    "timeoutMs": 8000,
+    "cacheSeconds": 3600
+  },
+  "response": {
+    "recordsPath": "$",
+    "fields": {
+      "name": {
+        "from": "display_name",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "Full place name as OpenStreetMap writes it."
+      },
+      "latitude": {
+        "from": "lat",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "required": true,
+        "description": "Latitude in degrees."
+      },
+      "longitude": {
+        "from": "lon",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "required": true,
+        "description": "Longitude in degrees."
+      },
+      "kind": {
+        "from": "type",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Kind of place, for example city."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "query": "Istanbul",
+      "limit": 2
+    },
+    "expectedUrl": "https://nominatim.openstreetmap.org/search?addressdetails=0&format=jsonv2&q=Istanbul&limit=2",
+    "status": 200,
+    "body": [
+      {
+        "place_id": 60160394,
+        "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+        "osm_type": "node",
+        "osm_id": 1882099475,
+        "lat": "41.0063810",
+        "lon": "28.9758715",
+        "category": "place",
+        "type": "city",
+        "place_rank": 16,
+        "importance": 0.7828175079468411,
+        "addresstype": "city",
+        "name": "İstanbul",
+        "display_name": "İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye",
+        "boundingbox": [
+          "40.8463810",
+          "41.1663810",
+          "28.8158715",
+          "29.1358715"
+        ]
+      },
+      {
+        "place_id": 60256076,
+        "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+        "osm_type": "relation",
+        "osm_id": 223474,
+        "lat": "41.0707456",
+        "lon": "29.0509414",
+        "category": "boundary",
+        "type": "administrative",
+        "place_rank": 8,
+        "importance": 0.603835278568622,
+        "addresstype": "province",
+        "name": "İstanbul",
+        "display_name": "İstanbul, Marmara Bölgesi, Türkiye",
+        "boundingbox": [
+          "40.7376735",
+          "41.6710000",
+          "27.9708481",
+          "29.9588048"
+        ]
+      }
+    ]
+  }
+}

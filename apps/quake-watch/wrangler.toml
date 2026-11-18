@@ -1,0 +1,11 @@
+name = "quake-watch"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# Static page. `/api/*` has no matching file, so it reaches the Worker.
+# The Worker hands every other unmatched path to this binding.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# No variables and no secrets: the app is read-only and public.

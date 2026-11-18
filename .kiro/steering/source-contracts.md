@@ -35,6 +35,7 @@ Top level (all required, no other keys):
 - `baseUrl`: absolute https URL, no query string.
 - `staticQuery`: optional object of constant query parameters (`{"format":"json"}`).
 - `query`: optional array of `{ key, template, joinWith? }`. `template` may contain `{param}` placeholders that name entries in `params`. The entry is skipped when any of its placeholders has no value (after defaults). Entries that share a `key` are joined with `joinWith` (required when a key repeats). Keys and joined values are percent-encoded once with `encodeURIComponent`, when the URL is built. Do not pre-encode templates. Query pairs are emitted in this order: `staticQuery` (sorted by key), then `query` entries by first appearance.
+- `requireOneOf`: optional non-empty array of parameter names. Input must give at least one of them (a string counts only if it has a non-whitespace character), otherwise the tool returns `INVALID_INPUT` before any fetch. Use it when the upstream answers an unfiltered query with its whole dataset. Listed parameters must be declared, not `required`, and have no `default`; `fixture.input` must give one of them. Say it in `tool.description` (for example "Give at least one of product, firm or date_from.") and in each listed parameter's `description`.
 - `timeoutMs`: integer, default `8000`.
 - `cacheSeconds`: integer, default `60`, `0` disables the cache.
 
@@ -138,5 +139,6 @@ Top level (all required, no other keys):
 - File name, `source`, and `/api/<source>` agree; `tool.name` is unique and follows `naming.md`.
 - Every `{placeholder}` names a declared param; every param is used by `query`, or is a pure filter you documented.
 - `required:true` only on fields that identify the record.
+- If the upstream returns its whole dataset for an unfiltered query, set `request.requireOneOf` and say so in the description.
 - `noMatch` is declared only when the upstream documents it.
 - Fixture was recorded from the real upstream, then trimmed; `expectedUrl` is set.

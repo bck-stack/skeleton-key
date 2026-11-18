@@ -1,6 +1,6 @@
 # Verification: Recall Radar
 
-State on 2026-11-19. `npm test` passes with no network access (26 files, 683 tests).
+State on 2026-11-19. `npm test` passes with no network access (36 files, 1013 tests).
 
 ## Requirement to test
 
@@ -23,6 +23,7 @@ Files are in `apps/recall-radar/test/` unless a path is given. RR-P numbers are 
 | 4.5 | `properties.test.js` RR-P5 (any non-array body) |
 | 4.6 | `properties.test.js` RR-P4; `packages/core/test/extract.test.js` "5.8 maxRecords"; newest-first evidence in `requirements.md` section 1 |
 | 4.7 | `contracts-app.test.js` |
+| 4.8 | `properties.test.js` RR-P10; `queries.test.js` (date_to alone, no filters); `worker.test.js` "recalls_search_consumer without product, firm or date_from"; `test/contracts.test.js` generated `requireOneOf` test; core: `validate.test.js` 2.7, `contract.test.js` 1.8, `properties.test.js` P11 |
 | 5.1 | `stdio.test.js` RR-P1; `worker.test.js` RR-P1 and "worker and stdio list identical tools" |
 | 5.2 | `contracts-app.test.js` "no contract file is copied"; `stdio.test.js` |
 | 5.3 | `worker.test.js` "tools/call"; `stdio.test.js`; `properties`-style RR-P6 in `worker.test.js` |
@@ -44,8 +45,8 @@ Files are in `apps/recall-radar/test/` unless a path is given. RR-P numbers are 
 
 ## Not verified
 
-- Behavior on deployed Cloudflare. Task 9 was a local `wrangler dev` run by the user; `wrangler deploy` was not run.
-- The Worker under workerd with the unfiltered CPSC call (27.8 MB response). Not tried.
+- Deployed Cloudflare Worker, `https://recall-radar.launch-engine.workers.dev/mcp`: checked by the user on 2026-11-19 with `initialize` and `recalls_search_consumer {"product":"crib"}` (`ok`, 25 records). I did not run it. That deployment predates the `requireOneOf` rule, so the rule is verified by unit tests only until the Worker is redeployed.
+- A large CPSC body on the deployed Worker (CPU and memory limits). The unfiltered call (27.8 MB) is now refused before the fetch. A very old `date_from` with a common product can still produce a big download. Not measured.
 - Unit tests of the Worker use Node `Request` and `Response`, not the Workers runtime.
 - Real upstream calls are not part of `npm test`. They were made by hand on 2026-11-18 and are recorded in `requirements.md` section 1 and in the fixtures.
 - The rate limits of openFDA (no key) and CPSC were not measured. The 60-second cache and the 8-second timeout are the only protection.
@@ -53,6 +54,7 @@ Files are in `apps/recall-radar/test/` unless a path is given. RR-P numbers are 
 
 ## Changes outside the app
 
+- `packages/core`: `request.requireOneOf` (2026-11-19, skeleton-core 1.8, 2.7). Schema, loader, `validate.js`, tests (unit, P11), steering `source-contracts.md` updated. The CPSC contract uses it for `product`, `firm`, `date_from`.
 - `packages/core`: `response.maxRecords` and the `isoDate` transform (approved). Schema, loader, extractor, tests and `skeleton-core` spec updated.
 - `sources/openfda-food-enforcement.source.json`: `product` optional, new `firm` and `date_to`.
 - `packages/adapters/test/stdio.test.js`: the invalid-call case used empty arguments, which are now valid; it uses an undeclared key instead.

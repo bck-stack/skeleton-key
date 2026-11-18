@@ -98,6 +98,48 @@ describe("loadContract", () => {
     });
   });
 
+  describe("1.8 request.requireOneOf", () => {
+    const withSet = (list) => {
+      const c = minimalContract();
+      c.params.firm = { type: "string", description: "Firm.", example: "Acme" };
+      c.request.requireOneOf = list;
+      return c;
+    };
+    it("accepts a list of declared optional parameters and keeps it", () => {
+      expect(loadContract(withSet(["q", "firm"])).request.requireOneOf).toEqual(["q", "firm"]);
+      expect(loadContract(minimalContract()).request.requireOneOf).toBeUndefined();
+    });
+    it("rejects an empty list, a non-array, a non-string and a duplicate, naming the path", () => {
+      const cases = [
+        [[], "$.request.requireOneOf"],
+        ["q", "$.request.requireOneOf"],
+        [["q", 5], "$.request.requireOneOf[1]"],
+        [["q", "q"], "$.request.requireOneOf[1]"],
+        [["Q"], "$.request.requireOneOf[0]"],
+      ];
+      for (const [list, path] of cases) expect(issuesOf(withSet(list)).map((i) => i.path)).toContain(path);
+    });
+    it("rejects an undeclared parameter", () => {
+      const issues = issuesOf(withSet(["q", "nope"]));
+      expect(issues[0].path).toBe("$.request.requireOneOf[1]");
+      expect(issues[0].message).toContain("nope");
+    });
+    it("rejects a required parameter and a parameter with a default", () => {
+      const c = withSet(["q", "firm"]);
+      c.params.firm.required = true;
+      c.fixture.input = { firm: "x" };
+      expect(issuesOf(c).map((i) => i.path)).toContain("$.request.requireOneOf[1]");
+      const d = withSet(["q", "firm"]);
+      d.params.firm.default = "x";
+      expect(issuesOf(d).map((i) => i.path)).toContain("$.request.requireOneOf[1]");
+    });
+    it("rejects a fixture input that gives none of the parameters", () => {
+      const c = withSet(["q", "firm"]);
+      c.fixture.input = {};
+      expect(issuesOf(c).map((i) => i.path)).toContain("$.fixture.input");
+    });
+  });
+
   describe("1.3 tool name", () => {
     for (const name of ["searchFood", "openfda-food", "get", "Recalls_search", "recalls__search", "_recalls_search", "recalls_search_", "a".repeat(30) + "_" + "b".repeat(34)]) {
       it(`rejects '${name.slice(0, 20)}${name.length > 20 ? "..." : ""}'`, () => {

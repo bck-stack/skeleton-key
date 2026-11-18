@@ -13,6 +13,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 1.5a When entries in `request.query` share a `key`, and any of them lacks `joinWith` or they declare different `joinWith` values, or a `query` template contains a `{` or `}` outside a `{placeholder}`, the system shall throw a `ContractError`.
 1.6 The system shall accept a contract with defaults applied (`timeoutMs` 8000, `cacheSeconds` 60, `required` false).
 1.7 Where `response.maxRecords` is present and is not an integer from 1 to 500, the system shall throw a `ContractError` naming `$.response.maxRecords`. (Amendment, approved 2026-11-18 for the recall-radar app.)
+1.8 Where `request.requireOneOf` is present, the system shall throw a `ContractError` naming the path when it is not a non-empty array of unique snake_case strings, or when an entry is not a declared parameter, is `required: true`, or has a `default` (such a parameter always has a value, so the rule could never fail), or when `fixture.input` gives none of the listed parameters. (Amendment, 2026-11-19, from the recall-radar open risk: an unfiltered CPSC call downloads 27.8 MB.)
 
 ## 2. Validate input
 **User story:** As an agent, I want a precise error for a bad argument, so that I can correct it without a network round trip.
@@ -23,6 +24,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 2.4 When an optional parameter is absent and has a `default`, the system shall apply the default, and `query` in the envelope shall show it.
 2.5 Where the caller enables string coercion (HTTP adapter), the system shall convert string values to the declared `integer`, `number` or `boolean` type before validation, and a failed conversion shall give `INVALID_INPUT`.
 2.6 If the input is not a plain object, then the system shall return `INVALID_INPUT`.
+2.7 Where `request.requireOneOf` lists parameter names and the input, after the per-parameter checks, has none of them, the system shall return `INVALID_INPUT` with `message` naming the first listed parameter and listing all of them, and shall not call `fetch`. A listed parameter counts as given when it has a value; a string counts only if it holds a non-whitespace character. A per-parameter error (2.1 to 2.3) is reported first. (Amendment, 2026-11-19.)
 
 ## 3. Build the request
 **User story:** As a developer, I want the URL built only from the contract, so that behavior is reviewable in one file.

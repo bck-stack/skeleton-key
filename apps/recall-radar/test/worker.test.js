@@ -92,6 +92,16 @@ describe("worker tools/call (5.3)", () => {
     expect(result.structuredContent.error.message).toContain("limit");
     expect(fetch.calls).toHaveLength(0);
   });
+
+  it("recalls_search_consumer without product, firm or date_from is INVALID_INPUT and never downloads", async () => {
+    const fetch = emptyAnswers();
+    const res = await testWorker(fetch).fetch(post(rpc("tools/call", { name: "recalls_search_consumer", arguments: { date_to: "2025-01-01" } })));
+    const { result } = await res.json();
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+    expect(result.structuredContent.error.message).toContain("product, firm, date_from");
+    expect(fetch.calls).toHaveLength(0);
+  });
 });
 
 describe("a throwing handler gives -32603 (6.4)", () => {

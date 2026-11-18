@@ -166,7 +166,7 @@ function checkParams(params, add) {
 
 function checkRequest(request, add) {
   if (!isObject(request)) return add("$.request", "must be an object");
-  const allowed = ["baseUrl", "staticQuery", "query", "timeoutMs", "cacheSeconds"];
+  const allowed = ["baseUrl", "staticQuery", "query", "requireOneOf", "timeoutMs", "cacheSeconds"];
   for (const key of Object.keys(request)) {
     if (!allowed.includes(key)) add(`$.request.${key}`, "unknown key");
   }
@@ -196,6 +196,18 @@ function checkRequest(request, add) {
           else if (typeof entry[key] !== "string" || entry[key] === "") add(`${p}.${key}`, "must be a non-empty string");
         }
         if (has(entry, "joinWith") && typeof entry.joinWith !== "string") add(`${p}.joinWith`, "must be a string");
+      });
+    }
+  }
+  if (has(request, "requireOneOf")) {
+    const list = request.requireOneOf;
+    if (!Array.isArray(list) || list.length === 0) {
+      add("$.request.requireOneOf", "must be a non-empty array of parameter names");
+    } else {
+      list.forEach((name, i) => {
+        if (typeof name !== "string" || !SNAKE_RE.test(name)) {
+          add(`$.request.requireOneOf[${i}]`, "must be a snake_case parameter name");
+        } else if (list.indexOf(name) !== i) add(`$.request.requireOneOf[${i}]`, `duplicate parameter '${name}'`);
       });
     }
   }
@@ -309,6 +321,14 @@ function checkCrossRules(c, issues) {
   }
   const fixtureInput = validateInput(c, c.fixture.input);
   if (!fixtureInput.ok) add("$.fixture.input", fixtureInput.message);
+
+  (c.request.requireOneOf ?? []).forEach((name, i) => {
+    const p = `$.request.requireOneOf[${i}]`;
+    const spec = has(c.params, name) ? c.params[name] : null;
+    if (!spec) add(p, `'${name}' is not a declared parameter`);
+    else if (spec.required === true) add(p, `'${name}' is required already, so it cannot be one of an "at least one" set`);
+    else if (has(spec, "default")) add(p, `'${name}' has a default, so it always has a value and cannot be one of an "at least one" set`);
+  });
 
   const joiners = new Map(); // key -> entries
   query.forEach((entry, i) => {

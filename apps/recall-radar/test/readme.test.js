@@ -50,9 +50,12 @@ describe("apps/recall-radar/README.md", () => {
     }
   });
 
-  it("states that the Worker was not deployed and the check was manual", () => {
-    expect(readme).toContain("Not deployed to Cloudflare");
+  it("gives the deployed URL and says the checks were manual, not run by npm test", () => {
+    expect(readme).toContain("https://recall-radar.launch-engine.workers.dev/mcp");
     expect(readme).toContain("Manual check");
+    expect(readme).toContain("Deployed, 2026-11-19");
+    expect(readme).toContain("not by `npm test`");
+    expect(readme).not.toContain("Not deployed to Cloudflare");
   });
 
   it("gives the Kiro and Claude Desktop stdio configuration and the deploy command", () => {

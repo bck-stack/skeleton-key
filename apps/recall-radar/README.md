@@ -8,7 +8,7 @@ An MCP server that answers "is this product recalled?" for chat agents. It has t
 | `recalls_search_drug` | openFDA drug enforcement reports | drug recalls in the US (unvalidated data, not medical advice) |
 | `recalls_search_consumer` | US Consumer Product Safety Commission | toys, strollers, appliances and other consumer products (at most 25 records) |
 
-All three take optional `product`, `firm`, `date_from` and `date_to` (`YYYY-MM-DD`, inclusive). The two openFDA tools also take `limit` (1 to 50, default 10). Always give `product`, `firm` or `date_from` to `recalls_search_consumer`: without a filter the CPSC sends its whole history (about 28 MB).
+All three take optional `product`, `firm`, `date_from` and `date_to` (`YYYY-MM-DD`, inclusive). The two openFDA tools also take `limit` (1 to 50, default 10). `recalls_search_consumer` needs at least one of `product`, `firm` or `date_from` (`date_to` alone is not enough). Without a filter the CPSC sends its whole history (about 28 MB), so the tool answers `INVALID_INPUT` and makes no request.
 
 Every answer has one of two shapes. `{ ok: true, source, query, count, records, fetchedAt }`: `count: 0` with an empty list means no matching recalls, which is a valid answer. `{ ok: false, source, error: { code, message, retryable } }` with the code `INVALID_INPUT`, `UPSTREAM_SHAPE_CHANGED` or `UPSTREAM_UNAVAILABLE`.
 
@@ -51,7 +51,13 @@ npm run deploy   # npx wrangler deploy, needs a Cloudflare account and `wrangler
 
 `wrangler` is run with `npx` and is not a dependency of this repository.
 
-**Manual check, 2026-11-19 (run by hand, not by `npm test`).** `npx wrangler dev` (workerd) on `127.0.0.1:8799`: `POST /mcp` `tools/list` returned the three tools. `tools/call` with `recalls_search_food {"product":"peanut butter","limit":2}` gave `ok`, count 2 (H-1386-2026). `recalls_search_drug {"product":"metformin","limit":2}` gave `ok`, count 2 (D-0657-2026). `recalls_search_consumer {"product":"stroller"}` gave `ok`, count 25 (recall 26639). `GET /` gave 404 and `GET /mcp` gave 405. **Not deployed to Cloudflare.** The unit tests run the Worker code with Node's `Request` and `Response`, not inside the Workers runtime.
+**Manual check, 2026-11-19 (run by hand, not by `npm test`).** `npx wrangler dev` (workerd) on `127.0.0.1:8799`: `POST /mcp` `tools/list` returned the three tools. `tools/call` with `recalls_search_food {"product":"peanut butter","limit":2}` gave `ok`, count 2 (H-1386-2026). `recalls_search_drug {"product":"metformin","limit":2}` gave `ok`, count 2 (D-0657-2026). `recalls_search_consumer {"product":"stroller"}` gave `ok`, count 25 (recall 26639). `GET /` gave 404 and `GET /mcp` gave 405. The unit tests run the Worker code with Node's `Request` and `Response`, not inside the Workers runtime.
+
+**Deployed, 2026-11-19 (checked by the project owner by hand, not by `npm test`).** The Worker is live at `https://recall-radar.launch-engine.workers.dev/mcp` (Cloudflare). `initialize` answered, and `tools/call` `recalls_search_consumer {"product":"crib"}` gave `ok` with 25 records. That check was made before the filter rule above; redeploy to put the rule on the live URL. Any client that speaks Streamable HTTP can use the URL. Quick check:
+
+```
+curl -s https://recall-radar.launch-engine.workers.dev/mcp -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
 
 ## Examples
 

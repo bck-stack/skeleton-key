@@ -177,3 +177,54 @@ describe("validateParamValue", () => {
     expect(validateParamValue("limit", food.params.limit, 5)).toEqual({ ok: true, value: 5 });
   });
 });
+
+
+describe("2.7 request.requireOneOf", () => {
+  const oneOf = () => {
+    const c = minimalContract();
+    c.params.firm = { type: "string", description: "Firm.", example: "Acme" };
+    c.params.date_from = { type: "date", description: "From.", example: "2025-01-01" };
+    c.params.limit = { type: "integer", default: 5, description: "Max.", example: 5 };
+    c.request.requireOneOf = ["q", "firm", "date_from"];
+    return loadContract(c);
+  };
+  const c = oneOf();
+
+  it("rejects input with none of the listed parameters, naming the first one", () => {
+    expect(validateInput(c, {})).toEqual({
+      ok: false, param: "q", message: "q: give at least one of q, firm, date_from",
+    });
+  });
+  it("is not satisfied by a default or by an unlisted parameter", () => {
+    expect(validateInput(c, { limit: 3 })).toMatchObject({ ok: false, param: "q" });
+  });
+  it("accepts any single listed parameter", () => {
+    expect(validateInput(c, { q: "a" }).ok).toBe(true);
+    expect(validateInput(c, { firm: "a" }).ok).toBe(true);
+    expect(validateInput(c, { date_from: "2025-01-01" })).toEqual({
+      ok: true, value: { date_from: "2025-01-01", limit: 5 },
+    });
+  });
+  it("does not count an empty or whitespace-only string", () => {
+    for (const blank of ["", "   ", "\t\n"]) {
+      expect(validateInput(c, { q: blank })).toMatchObject({ ok: false, param: "q" });
+    }
+    expect(validateInput(c, { q: "", firm: "Acme" }).ok).toBe(true);
+  });
+  it("reports a type error on a given parameter before the set rule", () => {
+    expect(validateInput(c, { date_from: "nope" })).toMatchObject({ ok: false, param: "date_from" });
+  });
+  it("treats an explicit undefined as absent", () => {
+    expect(validateInput(c, { q: undefined })).toMatchObject({ ok: false, param: "q" });
+  });
+  it("does nothing when the contract has no requireOneOf", () => {
+    expect(validateInput(loadContract(minimalContract()), {}).ok).toBe(true);
+  });
+  it("coerced values count too", () => {
+    const n = minimalContract();
+    n.params.page = { type: "integer", description: "Page.", example: 1 };
+    n.request.requireOneOf = ["page"];
+    n.fixture.input = { page: 1 };
+    expect(validateInput(loadContract(n), { page: "0" }, { coerce: true }).ok).toBe(true);
+  });
+});

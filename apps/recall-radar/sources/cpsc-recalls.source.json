@@ -3,29 +3,29 @@
   "source": "cpsc-recalls",
   "tool": {
     "name": "recalls_search_consumer",
-    "description": "Returns US Consumer Product Safety Commission recalls of consumer products such as toys, strollers and appliances (recall number, title, product, hazard, date, firm, link), at most 25 records, newest first. Use when asked whether a consumer product has been recalled. Always give product, firm or date_from; without a filter the upstream sends its whole history. An empty list means no matching records. Do not use for food (use recalls_search_food) or drugs (use recalls_search_drug)."
+    "description": "Returns US Consumer Product Safety Commission recalls of consumer products such as toys, strollers and appliances (recall number, title, product, hazard, date, firm, link), at most 25 records, newest first. Use when asked whether a consumer product has been recalled. Give at least one of product, firm or date_from. An empty list means no matching records. Do not use for food (use recalls_search_food) or drugs (use recalls_search_drug)."
   },
   "params": {
     "product": {
       "type": "string",
       "maxLength": 100,
-      "description": "Words from the product name, for example a toy or appliance type. Optional.",
+      "description": "Words from the product name, for example a toy or appliance type. One of product, firm, date_from is required.",
       "example": "stroller"
     },
     "firm": {
       "type": "string",
       "maxLength": 100,
-      "description": "Name of the manufacturer, for example a brand owner. Optional.",
+      "description": "Name of the manufacturer, for example a brand owner. One of product, firm, date_from is required.",
       "example": "Graco"
     },
     "date_from": {
       "type": "date",
-      "description": "Earliest recall date, YYYY-MM-DD, inclusive. Optional.",
+      "description": "Earliest recall date, YYYY-MM-DD, inclusive. One of product, firm, date_from is required.",
       "example": "2025-01-01"
     },
     "date_to": {
       "type": "date",
-      "description": "Latest recall date, YYYY-MM-DD, inclusive. Optional.",
+      "description": "Latest recall date, YYYY-MM-DD, inclusive. Optional, and not enough on its own.",
       "example": "2025-12-31"
     }
   },
@@ -51,6 +51,11 @@
         "key": "RecallDateEnd",
         "template": "{date_to}"
       }
+    ],
+    "requireOneOf": [
+      "product",
+      "firm",
+      "date_from"
     ],
     "timeoutMs": 8000,
     "cacheSeconds": 60

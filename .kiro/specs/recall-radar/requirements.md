@@ -22,7 +22,7 @@ Each source follows the add-source template (`.kiro/specs/_templates/add-source/
 | CPSC `RecallDateEnd` | n/a | n/a | Works and is inclusive (checked: start = end = 2025-02-27 gave records dated 2025-02-27). A reversed range gives HTTP 200 `[]`. |
 | CPSC malformed date | n/a | n/a | `RecallDateStart=notadate` gives HTTP 200 and a one-element array holding an error record (`RecallID` 0, `RecallNumber` null, `Title` "Error retrieving Recalls: ..."). Because `recall_number` is `required` and null in every record, the runtime already turns this into `UPSTREAM_SHAPE_CHANGED`. Input validation rejects non-dates before any call anyway. |
 | CPSC without `format=json` | n/a | n/a | Answers XML. The contract always sends `format=json`. |
-| CPSC with no filter | n/a | n/a | Returns the whole history: 27.8 MB, 2026-11-18. `maxRecords` limits what we return, not what we download. See the risk in `design.md` section 8. |
+| CPSC with no filter | n/a | n/a | Returns the whole history: 27.8 MB, 2026-11-18. `maxRecords` limits what we return, not what we download. The contract now sets `request.requireOneOf: ["product","firm","date_from"]` (skeleton-core 1.8, 2.7), so a call without one of them is `INVALID_INPUT` and never reaches the upstream. A very old `date_from` can still produce a large download. |
 
 ## 2. Tool `recalls_search_food` (source `openfda-food-enforcement`)
 **User story:** As a chat agent, I want to check whether a food product or firm has been recalled in the US, so that I can answer a shopper with a recall number and a link.
@@ -43,13 +43,14 @@ Each source follows the add-source template (`.kiro/specs/_templates/add-source/
 ## 4. Tool `recalls_search_consumer` (source `cpsc-recalls`)
 **User story:** As a chat agent, I want to check consumer products (toys, strollers, appliances), which the FDA does not cover.
 
-4.1 The tool shall accept optional `product` (text), `firm` (text), `date_from`, `date_to` (`YYYY-MM-DD`, inclusive).
+4.1 The tool shall accept optional `product` (text), `firm` (text), `date_from`, `date_to` (`YYYY-MM-DD`, inclusive); at least one of `product`, `firm`, `date_from` is needed (4.8).
 4.2 The system shall send `format=json` and map the parameters to the CPSC parameters named in `design.md` section 3.
 4.3 The system shall return records with `recall_number`, `title`, `product`, `hazard`, `date`, `firm`, `link`. `recall_number` and `title` are `required`. This source has no `classification` or `status`; the system shall not invent them.
 4.4 When the upstream answers 200 with `[]`, the system shall return `ok:true, count:0`. The contract shall not declare `noMatch`.
 4.5 If the body is not an array, then the system shall return `UPSTREAM_SHAPE_CHANGED`.
 4.6 The system shall return at most 25 records, newest first (needs the amendment in section 8).
 4.7 The description shall name `recalls_search_food` and `recalls_search_drug` as the alternatives.
+4.8 When the input has none of `product`, `firm` and `date_from` (`date_to` alone does not count), the system shall return `INVALID_INPUT` and shall not call the upstream, because the CPSC answers an unfiltered query with its whole history (27.8 MB). The contract declares this with `request.requireOneOf` (skeleton-core 1.8, 2.7). The description and the parameter descriptions say so. (Added 2026-11-19; closes the open risk in `design.md` section 8, except for a very old `date_from`.)
 
 ## 5. MCP server behavior
 **User story:** As an agent developer, I want one server that lists exactly these three tools.

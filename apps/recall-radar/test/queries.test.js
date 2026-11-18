@@ -3,7 +3,9 @@
  * (recall-radar requirements 2.1 to 2.5, 3.1, 4.2, design section 6).
  */
 import { describe, it, expect } from "vitest";
-import { load, urlOf, paramsOf } from "./helpers.js";
+import { load, urlOf, paramsOf, freshDeps } from "./helpers.js";
+import { runSource } from "../../../packages/core/src/index.js";
+import { makeFetch } from "../../../test/helpers/stub-fetch.js";
 
 const FOOD = "https://api.fda.gov/food/enforcement.json";
 
@@ -123,12 +125,23 @@ describe("recalls_search_consumer: request building", () => {
     );
   });
 
-  it("date_to only", async () => {
-    expect(await urlOf(cpsc, { date_to: "2025-03-31" })).toBe(`${CPSC}?format=json&RecallDateEnd=2025-03-31`);
+  it("date_to alone is rejected before any request (RR-P10)", async () => {
+    const fetch = makeFetch(() => ({ status: 200, body: [] }));
+    const out = await runSource(cpsc, { date_to: "2025-03-31" }, freshDeps(fetch));
+    expect(out.error.code).toBe("INVALID_INPUT");
+    expect(fetch.calls).toHaveLength(0);
   });
 
-  it("no filters sends only format=json", async () => {
-    expect(await urlOf(cpsc, {})).toBe(`${CPSC}?format=json`);
+  it("no filters is rejected before any request (RR-P10)", async () => {
+    const fetch = makeFetch(() => ({ status: 200, body: [] }));
+    const out = await runSource(cpsc, {}, freshDeps(fetch));
+    expect(out.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+    expect(out.error.message).toBe("product: give at least one of product, firm, date_from");
+    expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("date_to with date_from keeps both", async () => {
+    expect(await urlOf(cpsc, { date_from: "2025-01-01", date_to: "2025-03-31" })).toContain("RecallDateEnd=2025-03-31");
   });
 
   it("has no limit parameter: the 25-record cap is in the contract", async () => {

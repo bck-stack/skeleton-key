@@ -1,0 +1,319 @@
+{
+  "$schema": "../../../packages/core/schema/source.schema.json",
+  "source": "usgs-earthquakes",
+  "tool": {
+    "name": "quakes_near",
+    "description": "Returns earthquakes within a radius of a point (id, time in UTC, magnitude, place, latitude, longitude, depth in km, USGS page), newest first, at most 'limit' records. start_date is a UTC calendar date. Use when asked which earthquakes happened near a place or coordinates since a date. An empty list means no matching earthquakes. Do not use for forecasts or for anything but past earthquakes."
+  },
+  "params": {
+    "latitude": {
+      "type": "number",
+      "required": true,
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Latitude of the search center in decimal degrees, -90 to 90 (north is positive).",
+      "example": 38.2
+    },
+    "longitude": {
+      "type": "number",
+      "required": true,
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Longitude of the search center in decimal degrees, -180 to 180 (east is positive).",
+      "example": 37.2
+    },
+    "radius_km": {
+      "type": "number",
+      "default": 300,
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "Search radius in kilometers, 1 to 1000.",
+      "example": 300
+    },
+    "start_date": {
+      "type": "date",
+      "required": true,
+      "description": "Earliest event date, YYYY-MM-DD, a UTC calendar date, inclusive.",
+      "example": "2026-09-01"
+    },
+    "min_magnitude": {
+      "type": "number",
+      "default": 2.5,
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Smallest magnitude to return, 0 to 10.",
+      "example": 2.5
+    },
+    "limit": {
+      "type": "integer",
+      "default": 200,
+      "minimum": 1,
+      "maximum": 500,
+      "description": "Maximum number of events to return, 1 to 500.",
+      "example": 200
+    }
+  },
+  "request": {
+    "baseUrl": "https://earthquake.usgs.gov/fdsnws/event/1/query",
+    "staticQuery": {
+      "format": "geojson",
+      "eventtype": "earthquake",
+      "orderby": "time"
+    },
+    "query": [
+      {
+        "key": "latitude",
+        "template": "{latitude}"
+      },
+      {
+        "key": "longitude",
+        "template": "{longitude}"
+      },
+      {
+        "key": "maxradiuskm",
+        "template": "{radius_km}"
+      },
+      {
+        "key": "starttime",
+        "template": "{start_date}"
+      },
+      {
+        "key": "minmagnitude",
+        "template": "{min_magnitude}"
+      },
+      {
+        "key": "limit",
+        "template": "{limit}"
+      }
+    ],
+    "timeoutMs": 10000,
+    "cacheSeconds": 60
+  },
+  "response": {
+    "recordsPath": "features",
+    "fields": {
+      "id": {
+        "from": "id",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "USGS event id."
+      },
+      "time": {
+        "from": "properties.time",
+        "transform": [
+          "epochMsToIso"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "Origin time, ISO 8601 UTC."
+      },
+      "magnitude": {
+        "from": "properties.mag",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "description": "Magnitude. Null when USGS has none."
+      },
+      "place": {
+        "from": "properties.place",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "USGS place text, for example '21 km E of Feke, Turkey'."
+      },
+      "latitude": {
+        "from": "geometry.coordinates.1",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "required": true,
+        "description": "Epicenter latitude in degrees."
+      },
+      "longitude": {
+        "from": "geometry.coordinates.0",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "required": true,
+        "description": "Epicenter longitude in degrees."
+      },
+      "depth_km": {
+        "from": "geometry.coordinates.2",
+        "transform": [
+          "toNumber"
+        ],
+        "type": "number",
+        "description": "Depth in kilometers."
+      },
+      "url": {
+        "from": "properties.url",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "USGS event page."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "latitude": 38.2,
+      "longitude": 37.2,
+      "radius_km": 300,
+      "start_date": "2026-09-01",
+      "min_magnitude": 2.5,
+      "limit": 3
+    },
+    "expectedUrl": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventtype=earthquake&format=geojson&orderby=time&latitude=38.2&longitude=37.2&maxradiuskm=300&starttime=2026-09-01&minmagnitude=2.5&limit=3",
+    "status": 200,
+    "body": {
+      "type": "FeatureCollection",
+      "metadata": {
+        "generated": 1795037631000,
+        "url": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&latitude=38.2&longitude=37.2&maxradiuskm=300&starttime=2026-09-01&minmagnitude=2.5&limit=3",
+        "title": "USGS Earthquakes",
+        "status": 200,
+        "api": "2.8.4",
+        "limit": 3,
+        "offset": 1
+      },
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {
+            "mag": 4.7,
+            "place": "17 km NW of İmamoğlu, Turkey",
+            "time": 1794227298182,
+            "updated": 1794233346545,
+            "tz": null,
+            "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tx3n",
+            "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000tx3n&format=geojson",
+            "felt": 1,
+            "cdi": 2,
+            "mmi": null,
+            "alert": null,
+            "status": "reviewed",
+            "tsunami": 0,
+            "sig": 340,
+            "net": "us",
+            "code": "7000tx3n",
+            "ids": ",us7000tx3n,",
+            "sources": ",us,",
+            "types": ",dyfi,moment-tensor,origin,phase-data,",
+            "nst": 32,
+            "dmin": 0.668,
+            "rms": 0.44,
+            "gap": 60,
+            "magType": "mww",
+            "type": "earthquake",
+            "title": "M 4.7 - 17 km NW of İmamoğlu, Turkey"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              35.5394,
+              37.39,
+              10
+            ]
+          },
+          "id": "us7000tx3n"
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "mag": 4.2,
+            "place": "21 km E of Feke, Turkey",
+            "time": 1791154291153,
+            "updated": 1791929980040,
+            "tz": null,
+            "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tzl3",
+            "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tzl3&format=geojson",
+            "felt": null,
+            "cdi": null,
+            "mmi": null,
+            "alert": null,
+            "status": "reviewed",
+            "tsunami": 0,
+            "sig": 271,
+            "net": "us",
+            "code": "6000tzl3",
+            "ids": ",us6000tzl3,",
+            "sources": ",us,",
+            "types": ",origin,phase-data,",
+            "nst": 22,
+            "dmin": 0.261,
+            "rms": 0.92,
+            "gap": 75,
+            "magType": "mb",
+            "type": "earthquake",
+            "title": "M 4.2 - 21 km E of Feke, Turkey"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              36.1548,
+              37.7927,
+              10
+            ]
+          },
+          "id": "us6000tzl3"
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "mag": 4.2,
+            "place": "18 km E of Feke, Turkey",
+            "time": 1791134893338,
+            "updated": 1792317380040,
+            "tz": null,
+            "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tzjy",
+            "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tzjy&format=geojson",
+            "felt": null,
+            "cdi": null,
+            "mmi": null,
+            "alert": null,
+            "status": "reviewed",
+            "tsunami": 0,
+            "sig": 271,
+            "net": "us",
+            "code": "6000tzjy",
+            "ids": ",us6000tzjy,",
+            "sources": ",us,",
+            "types": ",moment-tensor,origin,phase-data,",
+            "nst": 54,
+            "dmin": 0.28,
+            "rms": 0.78,
+            "gap": 44,
+            "magType": "mwr",
+            "type": "earthquake",
+            "title": "M 4.2 - 18 km E of Feke, Turkey"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              36.1158,
+              37.7932,
+              9.37
+            ]
+          },
+          "id": "us6000tzjy"
+        }
+      ],
+      "bbox": [
+        35.5394,
+        37.39,
+        9.37,
+        36.1548,
+        37.7932,
+        10
+      ]
+    }
+  }
+}

@@ -124,7 +124,10 @@ const cpscRecord = fc.record(
 
 describe("RR-P3 cpsc: empty is not an error", () => {
   const contract = load("cpsc");
-  const cpscInput = fc.record({ product: fc.string({ maxLength: 100 }), firm: fc.string({ maxLength: 100 }), date_from: dateArb, date_to: dateArb }, { requiredKeys: [] });
+  const cpscInput = fc
+    .record({ product: fc.string({ maxLength: 100 }), firm: fc.string({ maxLength: 100 }), date_from: dateArb, date_to: dateArb }, { requiredKeys: [] })
+    // The contract needs one of product, firm, date_from (RR-P10); give date_from when none is.
+    .map((i) => (i.date_from === undefined && !(i.product ?? "").trim() && !(i.firm ?? "").trim() ? { ...i, date_from: "2025-01-01" } : i));
 
   it("HTTP 200 [] is ok:true, count:0, records:[] for any valid input", async () => {
     await fc.assert(
@@ -174,7 +177,7 @@ describe("RR-P4 cpsc: record cap", () => {
   it("exactly 25, 26 and 500 records", async () => {
     for (const n of [25, 26, 500]) {
       const rows = Array.from({ length: n }, (_, i) => ({ RecallNumber: String(i), Title: `t${i}` }));
-      const out = await runSource(contract, {}, freshDeps(respond(rows, 200)));
+      const out = await runSource(contract, { product: "x" }, freshDeps(respond(rows, 200)));
       expect(out.count).toBe(Math.min(n, 25));
     }
   });
@@ -217,7 +220,7 @@ describe("RR-P5 cpsc: shape", () => {
 
   it("an element missing RecallNumber among good ones keeps null in that record only", async () => {
     const rows = [{ RecallNumber: "1", Title: "a" }, { Title: "b" }, { RecallNumber: "3", Title: "c" }];
-    const out = await runSource(contract, {}, freshDeps(respond(rows, 200)));
+    const out = await runSource(contract, { product: "x" }, freshDeps(respond(rows, 200)));
     expect(out.ok).toBe(true);
     expect(out.records.map((r) => r.recall_number)).toEqual(["1", null, "3"]);
   });
@@ -274,7 +277,7 @@ describe("RR-P8 cpsc: request", () => {
 
   it("any text stays one parameter value: no extra keys, round-trips exactly", async () => {
     await fc.assert(
-      fc.asyncProperty(text100, text100, async (s, f) => {
+      fc.asyncProperty(text100.filter((s) => s.trim() !== ""), text100, async (s, f) => {
         const url = await urlOf(contract, { product: s, firm: f });
         const u = new URL(url);
         expect([...u.searchParams.keys()]).toEqual(["format", "ProductName", "Manufacturer"]);
@@ -300,7 +303,43 @@ describe("cpsc: date field", () => {
       { RecallNumber: "2", Title: "b", RecallDate: "2026-02-30T00:00:00" },
       { RecallNumber: "3", Title: "c" },
     ];
-    const out = await runSource(load("cpsc"), {}, freshDeps(makeFetch(() => ({ status: 200, body: rows }))));
+    const out = await runSource(load("cpsc"), { product: "x" }, freshDeps(makeFetch(() => ({ status: 200, body: rows }))));
     expect(out.records.map((r) => r.date)).toEqual(["2026-07-23", null, null]);
+  });
+});
+
+describe("RR-P10 cpsc: a filter is required before any download", () => {
+  const contract = load("cpsc");
+  const blank = fc.constantFrom(undefined, "", " ", "\t \n");
+  const noFilter = fc.record(
+    { product: blank, firm: blank, date_from: fc.constant(undefined), date_to: dateArb },
+    { requiredKeys: [] },
+  );
+
+  it("none of product, firm, date_from (date_to and blanks do not count) is INVALID_INPUT, and fetch is never called", async () => {
+    await fc.assert(
+      fc.asyncProperty(noFilter, async (input) => {
+        const fetch = makeFetch(() => ({ status: 200, body: [] }));
+        const out = await runSource(contract, input, freshDeps(fetch));
+        expect(out.ok).toBe(false);
+        expect(out.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+        expect(out.error.message).toMatch(/product, firm, date_from/);
+        expect(fetch.calls).toHaveLength(0);
+      }),
+      runs,
+    );
+  });
+
+  it("each of product, firm and date_from alone reaches the upstream", async () => {
+    for (const input of [{ product: "x" }, { firm: "x" }, { date_from: "2025-01-01" }]) {
+      const fetch = makeFetch(() => ({ status: 200, body: [] }));
+      const out = await runSource(contract, input, freshDeps(fetch));
+      expect(out).toMatchObject({ ok: true, count: 0 });
+      expect(fetch.calls).toHaveLength(1);
+    }
+  });
+
+  it("the contract declares the rule", () => {
+    expect(contract.request.requireOneOf).toEqual(["product", "firm", "date_from"]);
   });
 });

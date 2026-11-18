@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://tile.openstreetmap.org; connect-src 'self' https:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Recent earthquakes near a place or near you, from USGS, on a map and in a list.">
+  <!-- Where the API lives. Empty means this page's own origin. Set it to the Worker's URL when the page is hosted elsewhere (README). -->
+  <meta name="api-base" content="">
+  <title>Quake Watch: recent earthquakes near you</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#results">Skip to results</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <h1>Quake Watch</h1>
+      <p class="tagline">Felt a tremor? See the recent earthquakes around a place, on a map and in a list.</p>
+    </div>
+  </header>
+
+  <noscript>
+    <div class="wrap"><p class="notice">This page needs JavaScript to search for a place and draw the map.</p></div>
+  </noscript>
+
+  <main class="wrap layout">
+    <div class="controls">
+      <section class="card" aria-labelledby="where-title">
+        <h2 id="where-title"><span class="step" aria-hidden="true">1</span> Where</h2>
+
+        <form id="place-form" novalidate>
+          <label for="place-input">Place name</label>
+          <div class="field-row">
+            <input id="place-input" name="place" type="search" maxlength="100" autocomplete="off" enterkeyhint="search" placeholder="City or town, for example Istanbul" aria-describedby="place-hint place-error">
+            <button type="submit" class="btn btn-primary">Find place</button>
+          </div>
+          <p id="place-hint" class="hint">The search runs when you press Find place. Add the country if the name is common.</p>
+          <p id="place-error" class="field-error" hidden></p>
+        </form>
+
+        <div id="place-status" class="status" aria-live="polite"></div>
+        <div id="place-retry-row" class="actions" hidden>
+          <button type="button" id="place-retry-button" class="btn">Try again</button>
+        </div>
+
+        <div id="place-choices" hidden>
+          <h3 id="choices-title">Choose a place</h3>
+          <ul id="place-list" class="choice-list" aria-labelledby="choices-title"></ul>
+        </div>
+
+        <p class="or" aria-hidden="true">or</p>
+        <button type="button" id="locate-button" class="btn btn-secondary" hidden>Use my location</button>
+        <p id="locate-hint" class="hint" hidden>Your browser asks for permission first. Nothing is requested until you press the button.</p>
+
+        <p class="chosen">Searching around: <strong id="chosen-name">no place chosen yet</strong></p>
+        <p id="center-error" class="field-error" hidden></p>
+      </section>
+
+      <section class="card" aria-labelledby="filters-title">
+        <h2 id="filters-title"><span class="step" aria-hidden="true">2</span> What to show</h2>
+
+        <form id="filter-form" novalidate>
+          <div class="field">
+            <label for="radius-input">Radius (km)</label>
+            <input id="radius-input" name="radius" type="number" inputmode="numeric" min="10" max="1000" step="1" value="300" aria-describedby="radius-hint radius-error">
+            <p id="radius-hint" class="hint">10 to 1000</p>
+            <p id="radius-error" class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="days-input">Days back</label>
+            <input id="days-input" name="days" type="number" inputmode="numeric" min="1" max="365" step="1" value="7" aria-describedby="days-hint days-error">
+            <p id="days-hint" class="hint">1 to 365</p>
+            <p id="days-error" class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="magnitude-input">Minimum magnitude</label>
+            <input id="magnitude-input" name="magnitude" type="number" inputmode="decimal" min="0" max="9" step="0.1" value="2.5" aria-describedby="magnitude-hint magnitude-error">
+            <p id="magnitude-hint" class="hint">0 to 9</p>
+            <p id="magnitude-error" class="field-error" hidden></p>
+          </div>
+          <button type="submit" class="btn btn-primary btn-wide">Show earthquakes</button>
+        </form>
+      </section>
+    </div>
+
+    <section id="results" class="results" aria-labelledby="results-title" tabindex="-1">
+      <h2 id="results-title">Earthquakes</h2>
+      <div id="status" class="status status-main" aria-live="polite" aria-atomic="true">Search for a place or use your location to see the earthquakes around it.</div>
+      <p id="notice" class="notice" hidden></p>
+      <div id="retry-row" class="actions" hidden>
+        <button type="button" id="retry-button" class="btn">Try again</button>
+      </div>
+
+      <div id="map-section" hidden>
+        <div id="map" class="map" role="group" aria-label="Map of the earthquakes. The list below has the same information."></div>
+        <ul id="legend" class="legend" aria-label="Marker colors by magnitude"></ul>
+      </div>
+
+      <ol id="quake-list" class="quake-list" aria-label="Earthquakes, newest first" hidden></ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Earthquake data: <a href="https://earthquake.usgs.gov/" rel="noopener noreferrer">USGS</a>. Place search and map: © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer">OpenStreetMap contributors</a>.</p>
+      <p>Privacy: the coordinates of your search are sent to this page's server and to USGS, and the place text you type goes to the server and to OpenStreetMap's place search. The map tiles come from OpenStreetMap, which sees your IP address. This page stores nothing in cookies or in your browser and has no analytics or third-party scripts.</p>
+      <p>Quake Watch is not a warning system. In an emergency, follow your local authorities.</p>
+    </div>
+  </footer>
+</body>
+</html>

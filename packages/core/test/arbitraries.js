@@ -133,6 +133,8 @@ export const contractArb = fc
     timeoutMs: fc.constantFrom(undefined, 200, 5000),
     cacheSeconds: fc.constantFrom(undefined, 0, 30),
     source: fc.constantFrom("gen-source", "other"),
+    useOneOf: fc.boolean(),
+    oneOfMask: fc.array(fc.boolean(), { minLength: PARAM_NAMES.length, maxLength: PARAM_NAMES.length }),
   })
   .chain((o) =>
     queryArb(Object.keys(o.params)).map((request) => {
@@ -141,6 +143,15 @@ export const contractArb = fc
       const input = {};
       for (const [n, spec] of Object.entries(o.params)) {
         if (spec.required) input[n] = spec.example;
+      }
+      // requireOneOf may only list optional parameters without a default.
+      const eligible = Object.entries(o.params)
+        .filter(([, s]) => !s.required && !("default" in s))
+        .map(([n]) => n);
+      if (o.useOneOf && eligible.length > 0) {
+        const picked = eligible.filter((_n, i) => o.oneOfMask[i]);
+        request.requireOneOf = picked.length > 0 ? picked : [eligible[0]];
+        input[request.requireOneOf[0]] = o.params[request.requireOneOf[0]].example;
       }
       const response = { recordsPath: o.recordsPath, fields: o.fields };
       if (o.noMatch) response.noMatch = { status: o.noMatch };
@@ -186,6 +197,11 @@ export function validInputArb(contract) {
       entries.forEach(([name], i) => {
         if (values[i] !== undefined) input[name] = values[i];
       });
+      // Satisfy request.requireOneOf: a blank string does not count.
+      const set = contract.request?.requireOneOf;
+      if (set && !set.some((n) => input[n] !== undefined && !(typeof input[n] === "string" && input[n].trim() === ""))) {
+        input[set[0]] = contract.params[set[0]].example;
+      }
       return input;
     });
 }
@@ -241,5 +257,26 @@ export const violations = {
   outsideEnum: (c, input) => {
     const name = Object.keys(c.params).find((n) => c.params[n].enum);
     return name ? [{ ...input, [name]: "zzz" }, name] : null;
+  },
+  /** requireOneOf: none of the listed parameters given. */
+  noneOfSet: (c, input) => {
+    const set = c.request.requireOneOf;
+    if (!set) return null;
+    const rest = { ...input };
+    for (const n of set) delete rest[n];
+    return [rest, set[0]];
+  },
+  /** requireOneOf: every listed string is blank, the others absent. */
+  blankOfSet: (c, input) => {
+    const set = c.request.requireOneOf;
+    if (!set || !set.some((n) => c.params[n].type === "string")) return null;
+    // A blank value for an enum string would fail on the enum first, which is a different rule.
+    if (set.some((n) => c.params[n].type === "string" && c.params[n].enum)) return null;
+    const rest = { ...input };
+    for (const n of set) {
+      if (c.params[n].type === "string") rest[n] = " \t";
+      else delete rest[n];
+    }
+    return [rest, set[0]];
   },
 };

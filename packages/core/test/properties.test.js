@@ -78,6 +78,42 @@ describe("P10: generated contracts load and match the schema (req 1.1, 9.3)", ()
   });
 });
 
+describe("P11: request.requireOneOf (req 1.8, 2.7)", () => {
+  const withSet = loadedWithInputArb.filter(([c]) => Array.isArray(c.request.requireOneOf));
+
+  it("none of the listed parameters gives INVALID_INPUT naming the first, and fetch is never called", async () => {
+    await fc.assert(
+      fc.asyncProperty(withSet, async ([contract, input]) => {
+        const set = contract.request.requireOneOf;
+        const bad = { ...input };
+        for (const n of set) delete bad[n];
+        const fetch = makeFetch(() => ({ status: 200, body: wrapRecords(contract.response.recordsPath, []) }));
+        const r = await runSource(contract, bad, freshDeps(fetch));
+        expect(r.ok).toBe(false);
+        expect(r.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+        expect(r.error.message).toContain(set[0]);
+        expect(fetch.calls).toHaveLength(0);
+      }),
+      RUNS,
+    );
+  });
+
+  it("any one listed parameter with a real value is enough", async () => {
+    await fc.assert(
+      fc.asyncProperty(withSet, fc.nat(), async ([contract, input], pick) => {
+        const set = contract.request.requireOneOf;
+        const keep = set[pick % set.length];
+        const only = { ...input };
+        for (const n of set) delete only[n];
+        only[keep] = contract.params[keep].example;
+        const r = validateInput(contract, only);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+      }),
+      RUNS,
+    );
+  });
+});
+
 describe("P5 (validation half): invalid input names the parameter (req 2.1 to 2.3)", () => {
   it("returns ok:false naming the parameter for every kind of violation", () => {
     fc.assert(

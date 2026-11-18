@@ -1,0 +1,14 @@
+{
+  "name": "@skeleton-key/quake-watch",
+  "version": "0.1.0",
+  "description": "A web page that shows recent earthquakes near a place, from USGS, on a map and in a list.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "npx wrangler dev",
+    "build": "npx wrangler deploy --dry-run --outdir .wrangler/dist",
+    "deploy": "npx wrangler deploy"
+  }
+}

@@ -85,10 +85,11 @@ describe("the three tools (requirements 4.7, 5.1, 5.4, 5.5)", () => {
     });
   }
 
-  it("the consumer tool says to give a filter, and states the cap of 25", () => {
+  it("the consumer tool says a filter is needed, and states the cap of 25", () => {
     const d = load("cpsc").tool.description;
     expect(d).toContain("at most 25");
-    expect(d).toMatch(/Always give product, firm or date_from/);
+    expect(d).toMatch(/Give at least one of product, firm or date_from/);
+    expect(load("cpsc").request.requireOneOf).toEqual(["product", "firm", "date_from"]);
   });
 
   it("no contract file is copied into the app (requirement 5.2)", () => {

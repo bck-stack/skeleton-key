@@ -16,6 +16,13 @@ Each contract follows the add-source template (`.kiro/specs/_templates/add-sourc
 | Position | `geometry.coordinates` = `[longitude, latitude, depth_km]` | `lat`, `lon` as strings |
 | Magnitude | `properties.mag`, can be `null` | not used |
 | Usage terms | no stated per-IP limit; 20000 events per query | at most 1 request per second, no type-ahead, identifying `User-Agent` or `Referer`, cache results, show "© OpenStreetMap contributors" |
+| No matches (rechecked 2026-11-19) | HTTP 200, `features: []` (checked: 100 km radius at 0°N 140°W, 2.5+, last 30 days). Same body shape as a match, with `metadata` and an empty `features`. | HTTP 200 `[]` (checked: `zzzqqxxyy`, 2 bytes). No stop needed. |
+| Bad parameter | HTTP 400, `content-type: text/plain`, body "Bad latitude value "95"..." . Not JSON. The runtime maps it to `UPSTREAM_SHAPE_CHANGED`. The contract's own limits reject it first, so it should never be sent. | not tried |
+| `limit` | Honoured: `limit=1` gave 1 event, `limit=3` gave 3 (the same newest events, `orderby=time`). A query with `limit=500` over the same area and 2026-09-01 gave 9 events. | `limit` works (`limit=2` gave 2 places for `Istanbul`). |
+| Request without `User-Agent` | works | **HTTP 403**, `text/plain`, "Access denied. See https://operations.osmfoundation.org/policies/nominatim/". With a `User-Agent` the same call gave 200. This confirms requirement 3.6: the Worker must set it. |
+| Response headers | `content-type: application/json; charset=utf-8`, `cache-control: public, max-age=60`, `access-control-allow-origin: *` | `content-type: application/json; charset=utf-8`, no CORS header on success (the page never calls it directly) |
+| Text | `place` is UTF-8 and can hold non-ASCII (`17 km NW of İmamoğlu, Turkey`) | `display_name` is UTF-8 (`İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye`). The first hit for `Istanbul` is `lat` `"41.0063810"`, `lon` `"28.9758715"`, `type` `"city"`. |
+| Null magnitude | `properties.mag` can be `null` by the USGS schema. None appeared in the recorded samples, so the null case is tested with a modified fixture, not a recorded one. | n/a |
 
 Place search uses Nominatim. Open-Meteo geocoding was rejected: it omits the `results` key when nothing matches (checked: `name=zzzqqxxyy` returns `{"generationtime_ms":...}`), which the answer rules treat as `UPSTREAM_SHAPE_CHANGED`, so "place not found" would look like a broken source.
 

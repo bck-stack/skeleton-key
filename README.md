@@ -6,6 +6,7 @@ Turn one public data source into an agent tool from one declarative file, `sourc
 - `packages/adapters`: MCP server (Streamable HTTP and stdio) and a JSON endpoint, generated from the contracts.
 - `sources/`: contracts. The sample is `openfda-food-enforcement.source.json` (tool `recalls_search_food`).
 - `apps/recall-radar`: an MCP server with three recall tools (food, drugs, consumer products), over stdio and as a Cloudflare Worker. See [apps/recall-radar/README.md](apps/recall-radar/README.md).
+- `apps/quake-watch`: a web page that shows recent earthquakes near a place (USGS data, OpenStreetMap map), served by a Cloudflare Worker. See [apps/quake-watch/README.md](apps/quake-watch/README.md).
 
 ```
 npm install

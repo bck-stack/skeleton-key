@@ -175,6 +175,17 @@ for (const { file, raw } of raws) {
     });
 
     const noMatch = contract.response.noMatch;
+    if (contract.request.requireOneOf) {
+      it("requireOneOf: input with none of the listed parameters is INVALID_INPUT and fetch is never called", async () => {
+        const fetch = respond(fixture.body, fixture.status);
+        const set = contract.request.requireOneOf;
+        const rest = Object.fromEntries(Object.entries(fixture.input).filter(([k]) => !set.includes(k)));
+        const out = await runSource(contract, rest, freshDeps(fetch));
+        expect(out.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+        expect(out.error.message.startsWith(`${set[0]}: `)).toBe(true);
+        expect(fetch.calls).toHaveLength(0);
+      });
+    }
     if (noMatch) {
       for (const status of noMatch.status) {
         it(`noMatch status ${status} gives ok:true, count:0`, async () => {

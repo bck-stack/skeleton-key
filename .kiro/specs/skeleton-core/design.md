@@ -43,7 +43,7 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 
 ## 3. Data flow in `runSource`
 
-1. `validateInput` fails → `failure(INVALID_INPUT, "<param>: <reason>")`. No fetch.
+1. `validateInput` fails → `failure(INVALID_INPUT, "<param>: <reason>")`. No fetch. This includes the `request.requireOneOf` rule (amendment, req 2.7): after every parameter has passed its own checks, if none of the listed parameters has a value (a string counts only when it has a non-whitespace character), the result is `"<first listed>: give at least one of <all listed>"`. Defaults never count, which is why the loader rejects a listed parameter that has one.
 2. `buildUrl` → `url`. If `cacheSeconds > 0` and the cache holds `source + url` → return a success envelope built from the cached records and the cached `fetchedAt`, with the caller's own `query`. (Changed in task 10: the first draft cached the whole envelope keyed by URL alone. That would show another caller's `query` when a parameter does not change the URL, and would share entries between two sources that build the same URL with different field maps.)
 3. `fetch(url, { method:"GET", headers:{accept:"application/json"}, signal })`. `signal` comes from an `AbortController` that a `setTimeout(timeoutMs)` aborts. The same timer rejects a race against the whole exchange (fetch plus reading the 2xx body), so a `fetch` that ignores the signal still ends at `timeoutMs`. A rejection, a body read failure or a timeout → `UPSTREAM_UNAVAILABLE`. (Changed from `AbortSignal.timeout`, which cannot end a `fetch` that ignores its signal.)
 4. Classify status, in this order:
@@ -102,6 +102,7 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
             }
           }
         },
+        "requireOneOf": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$" } },
         "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 30000, "default": 8000 },
         "cacheSeconds": { "type": "integer", "minimum": 0, "maximum": 3600, "default": 60 }
       }
@@ -164,7 +165,7 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
 }
 ```
 
-`contract.js` also enforces: `required` and `default` not together; `default` valid for its param type; `format` only on `date`; `escape` only on `string`; `enum` only on `string`; `joinWith` present on every entry of a `key` that repeats, with the same value on all of them (clarified in task 5: the brief did not say which entry's joiner wins); every `{placeholder}` in `query` is a declared param, and a `query` template has no `{` or `}` outside a placeholder (added in task 5 so request building can never leave a raw brace, P8); every `{path}` in a field `template` is non-empty; `fixture.input` passes the contract's own input validation; description contains `Returns`, `Use when`, `Do not use`.
+`contract.js` also enforces: every `request.requireOneOf` entry is a declared parameter that is neither `required` nor has a `default` (amendment, req 1.8); `required` and `default` not together; `default` valid for its param type; `format` only on `date`; `escape` only on `string`; `enum` only on `string`; `joinWith` present on every entry of a `key` that repeats, with the same value on all of them (clarified in task 5: the brief did not say which entry's joiner wins); every `{placeholder}` in `query` is a declared param, and a `query` template has no `{` or `}` outside a placeholder (added in task 5 so request building can never leave a raw brace, P8); every `{path}` in a field `template` is non-empty; `fixture.input` passes the contract's own input validation; description contains `Returns`, `Use when`, `Do not use`.
 
 ## 5. Types (JSDoc, in `envelope.js` and `contract.js`)
 
@@ -252,6 +253,7 @@ Follows `.kiro/steering/testing.md`. Stub `fetch` helpers live in `test/helpers/
 | P8 | `buildUrl` called twice with equal validated input returns equal strings, and the string contains no `{` or `}` produced by an unresolved placeholder (inputs containing braces are percent-encoded, so no raw `{` appears). | 3.1 3.6 |
 | P9 | `createMcpHandler` never throws or rejects for arbitrary request bodies (`fc.anything()`, `fc.string()`, valid JSON-RPC shapes). Unknown methods give `-32601`. Every response is JSON-RPC 2.0 with matching `id`, or HTTP 202 for notifications. `tools/call` result has `structuredContent` deep-equal to the parsed text content. | 7.4 to 7.9 |
 | P10 | Every contract produced by the contract arbitrary passes both `loadContract` and the JSON Schema; deleting any required top-level key makes both reject it. | 1.1 9.3 |
+| P11 | For any contract with `request.requireOneOf`, an input with none of the listed parameters gives `INVALID_INPUT` naming the first listed one, `retryable:false`, and `fetch` is never called. An input with any one listed parameter holding a real value passes validation. (P5's violation list also covers a set filled only with blank strings.) | 1.8 2.7 |
 
 Properties are never weakened to pass. If one fails, fix the code, or change the requirement here first.
 
@@ -262,3 +264,4 @@ Properties are never weakened to pass. If one fails, fix the code, or change the
 - 429 maps to `UPSTREAM_UNAVAILABLE` and unexpected 4xx to `UPSTREAM_SHAPE_CHANGED`; the brief does not say. Recorded in `answer-rules.md`.
 - `ajv` is a dev dependency used only in tests, to keep the schema file and `contract.js` in agreement.
 - Hooks and the "add a source" spec template are separate deliverables, not part of this spec.
+- Amendment (2026-11-19, from the recall-radar open risk): `request.requireOneOf` lists parameters of which at least one must be given. It lives in `request` because it protects the upstream call. It is checked in `validateInput`, so every adapter gets it before any fetch, and an agent receives the same `INVALID_INPUT` envelope as for any other bad argument. Alternatives rejected: making one parameter `required` (the CPSC tool accepts any of three), and a rule that counts defaults (it would always pass). The MCP `inputSchema` is not changed: JSON Schema `anyOf` at the top level is rejected by some model APIs for tool schemas, so the rule is stated in the tool description and enforced at runtime. It cannot bound the download for a very old `date_from`; that part of the risk stays open in `recall-radar/design.md`.

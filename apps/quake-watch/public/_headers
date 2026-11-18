@@ -1,0 +1,7 @@
+# Response headers for the static files, read by Cloudflare Workers static assets.
+# The Content-Security-Policy is a <meta> tag in index.html, so it also holds on other static hosts.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
