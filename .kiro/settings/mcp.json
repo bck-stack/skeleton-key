@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "recall-radar": {
+      "url": "https://recall-radar.launch-engine.workers.dev/mcp"
+    }
+  }
+}

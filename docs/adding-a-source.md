@@ -18,6 +18,32 @@ A new source goes through the same three documents as every other change: requir
    - Saving a contract runs `npm test -- test/contracts.test.js`.
    - Saving a file under `packages/` runs `npm test`.
 
+## The `source-smith` agent
+
+`.kiro/agents/source-smith.json` is a Kiro CLI custom agent that does steps 1 to 6 for one source and nothing else.
+
+```
+kiro-cli chat --agent source-smith
+```
+
+Give it the upstream docs URL, the app (`recall-radar` or `quake-watch`) and the question the tool should answer. It copies the template, makes the real upstream calls, writes the contract and fixtures, registers the contract in the app, runs `npm test` and reports.
+
+| setting | value |
+|---|---|
+| Resources | the five steering files, the three template files, `packages/core/schema/source.schema.json` |
+| Tools | `read`, `write`, `shell`, `web_fetch`, and the `recall-radar` MCP server |
+| Auto-approved | `read` and the `recall-radar` tools. `web_fetch` asks for each URL, so you see every upstream call. |
+| Writes without a prompt | `.kiro/specs/add-*`, the two app spec folders, `apps/*/sources/*.source.json`, `apps/*/src/contracts.js`, `apps/*/worker/index.js`, `apps/*/test/**`, `apps/*/README.md`, `test/fixtures/*.json` |
+| Never writes | `packages/**`, `.kiro/steering/**`, `.kiro/agents/**`, `.kiro/hooks/**`, `package.json`, `package-lock.json`, `.gitignore` |
+| Shell | denied unless it matches `npm test`, `npm test -- <path>`, `node bin/skeleton-mcp.js`, `node apps/<app>/bin/<name>.js`, or `echo '{...}' \| node bin/skeleton-mcp.js` |
+
+Limits to know:
+
+- The `recall-radar` server in the agent is the deployed Worker (the same URL as `.kiro/settings/mcp.json`). A new tool shows in its tool list only after the app is deployed. Before that, the agent checks locally with `npm test` and the stdio server, and says so in its report.
+- `deniedPaths` entries ask for approval instead of writing; they do not make a file read-only on disk.
+- Check the config after editing it: `kiro-cli agent validate --path .kiro/agents/source-smith.json` (no output and exit code 0 means valid).
+- The hooks in `.kiro/hooks/` still fire when the agent creates a contract, so fixture recording can run twice. Let the agent's run finish and review the result once.
+
 ## What you do not write
 
 - No code in `packages/*`. If the contract cannot express a behavior, change `.kiro/specs/skeleton-core/` first and add a task for it.
