@@ -2,10 +2,10 @@
 
 Order matters. Each task includes its tests, written in the same change. Run `npm test` before ticking a task. Requirement numbers refer to `requirements.md`; P-numbers to the properties in `design.md` section 9.
 
-- [ ] 1. Repository scaffold. `package.json` (ESM, workspaces `packages/*`, `engines.node >=20`, scripts `test`, devDependencies `vitest`, `fast-check`, `ajv`), `vitest.config.js`, `LICENSE` (MIT), `.gitignore` (must not list `.kiro`), `README.md` stub. Test: a smoke test that `npm test` runs. _Req 9.1, 9.2_
-- [ ] 2. `packages/core/src/path.js`: `getPath` with dot segments, array indexes and `$`. Tests: examples, missing segments return `undefined`, never throws on any value (fast-check). _Req 5.1_
-- [ ] 3. `packages/core/src/transforms.js`: six transforms and `applyTransforms`. Tests: table-driven examples per transform; **P4**. _Req 5.5_
-- [ ] 4. `packages/core/schema/source.schema.json` from design section 4, and `packages/core/src/envelope.js` (`success`, `failure`, retryable derived from code). Tests: envelope constructors; schema accepts a minimal valid contract (ajv) and rejects each missing required key. _Req 6.1, 6.2, 9.3_
+- [x] 1. Repository scaffold. `package.json` (ESM, workspaces `packages/*`, `engines.node >=20`, scripts `test`, devDependencies `vitest`, `fast-check`, `ajv`), `vitest.config.js`, `LICENSE` (MIT), `.gitignore` (must not list `.kiro`), `README.md` stub. Test: a smoke test that `npm test` runs. _Req 9.1, 9.2_
+- [x] 2. `packages/core/src/path.js`: `getPath` with dot segments, array indexes and `$`. Tests: examples, missing segments return `undefined`, never throws on any value (fast-check). _Req 5.1_
+- [x] 3. `packages/core/src/transforms.js`: six transforms and `applyTransforms`. Tests: table-driven examples per transform; **P4**. _Req 5.5_
+- [x] 4. `packages/core/schema/source.schema.json` from design section 4, and `packages/core/src/envelope.js` (`success`, `failure`, retryable derived from code). Tests: envelope constructors; schema accepts a minimal valid contract (ajv) and rejects each missing required key. _Req 6.1, 6.2, 9.3_
 - [ ] 5. `packages/core/src/contract.js`: `loadContract`, `loadContracts`, `ContractError`, defaults, all cross-checks from design section 4. Tests: one failing case per rule in requirements 1.1 to 1.5, defaults (1.6); **P10**. _Req 1.1 to 1.6_
 - [ ] 6. `packages/core/src/validate.js`: types, limits, dates, undeclared keys, defaults, coercion, non-object input. Tests: one case per criterion; **P5** (validation half: result is `INVALID_INPUT` naming the parameter). _Req 2.1 to 2.6_
 - [ ] 7. `packages/core/src/request.js`: `buildUrl` with templates, skipping, joining, lucene escape, `yyyymmdd`, single encoding. Tests: examples including the openFDA food example URL from `source-contracts.md`; **P8**. _Req 3.1 to 3.6_

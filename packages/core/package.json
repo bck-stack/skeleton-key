@@ -1,0 +1,13 @@
+{
+  "name": "@skeleton-key/core",
+  "version": "0.1.0",
+  "description": "Runtime-agnostic source contract runtime. fetch only, no Node built-ins.",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./schema": "./schema/source.schema.json"
+  },
+  "engines": { "node": ">=20" }
+}
