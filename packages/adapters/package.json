@@ -1,0 +1,15 @@
+{
+  "name": "@skeleton-key/adapters",
+  "version": "0.1.0",
+  "description": "MCP (Streamable HTTP and stdio) and JSON HTTP adapters generated from source contracts.",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@skeleton-key/core": "0.1.0"
+  }
+}

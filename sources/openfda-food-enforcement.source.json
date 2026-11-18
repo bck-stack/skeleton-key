@@ -1,0 +1,178 @@
+{
+  "$schema": "../packages/core/schema/source.schema.json",
+  "source": "openfda-food-enforcement",
+  "tool": {
+    "name": "recalls_search_food",
+    "description": "Returns FDA food recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a food product or firm has been recalled in the US. An empty list means no matching records. Do not use for drugs (use recalls_search_drug) or non-food consumer products (use recalls_search_consumer)."
+  },
+  "params": {
+    "product": {
+      "type": "string",
+      "required": true,
+      "maxLength": 100,
+      "escape": "lucene",
+      "description": "Words from the product description, for example a brand or food name.",
+      "example": "peanut butter"
+    },
+    "date_from": {
+      "type": "date",
+      "format": "yyyymmdd",
+      "description": "Earliest report date, YYYY-MM-DD, inclusive.",
+      "example": "2024-01-01"
+    },
+    "limit": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 50,
+      "description": "Maximum number of records to return, 1 to 50.",
+      "example": 10
+    }
+  },
+  "request": {
+    "baseUrl": "https://api.fda.gov/food/enforcement.json",
+    "query": [
+      {
+        "key": "search",
+        "template": "product_description:\"{product}\"",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
+        "template": "report_date:[{date_from} TO 29991231]",
+        "joinWith": " AND "
+      },
+      {
+        "key": "sort",
+        "template": "report_date:desc"
+      },
+      {
+        "key": "limit",
+        "template": "{limit}"
+      }
+    ],
+    "timeoutMs": 8000,
+    "cacheSeconds": 60
+  },
+  "response": {
+    "recordsPath": "results",
+    "noMatch": {
+      "status": [
+        404
+      ]
+    },
+    "fields": {
+      "recall_number": {
+        "from": "recall_number",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "FDA recall number."
+      },
+      "product": {
+        "from": "product_description",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "Recalled product."
+      },
+      "reason": {
+        "from": "reason_for_recall",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Why it was recalled."
+      },
+      "classification": {
+        "from": "classification",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Class I, II or III."
+      },
+      "status": {
+        "from": "status",
+        "transform": [
+          "trim",
+          "lower"
+        ],
+        "type": "string",
+        "description": "Ongoing, completed or terminated."
+      },
+      "date": {
+        "from": "report_date",
+        "transform": [
+          "yyyymmddToIso"
+        ],
+        "type": "string",
+        "description": "Report date, ISO date."
+      },
+      "firm": {
+        "from": "recalling_firm",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Recalling company."
+      },
+      "link": {
+        "template": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"{recall_number}\"",
+        "type": "string",
+        "description": "Machine-readable record URL."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "product": "peanut butter",
+      "limit": 3
+    },
+    "expectedUrl": "https://api.fda.gov/food/enforcement.json?search=product_description%3A%22peanut%20butter%22&sort=report_date%3Adesc&limit=3",
+    "status": 200,
+    "body": {
+      "meta": {
+        "last_updated": "2026-11-11",
+        "results": {
+          "skip": 0,
+          "limit": 3,
+          "total": 606
+        }
+      },
+      "results": [
+        {
+          "recall_number": "H-1386-2026",
+          "product_description": "PUMPKIN SPICE NO BAKE COOKIE NET WT 3.5 oz. INGREDIENTS: WHOLE GRAIN OATS, MILK, MARGARINE***WATER, SALT, CONTAINS LESS THAN 2% OF THE FOLLOWING: SOY LECITHIN, VEGETABLE MONO & DIGLYCERIDES, POTASSIUM",
+          "reason_for_recall": "Peanuts & Eggs. The firm list peanuts in the ingredient statement but omitted them from the contain statement. They also have eggs listed in the contain statement but there are no eggs in the product.",
+          "classification": "Class II",
+          "status": "Ongoing",
+          "report_date": "20260923",
+          "recalling_firm": "Best Friends Bakery, LLC"
+        },
+        {
+          "recall_number": "H-1034-2026",
+          "product_description": "UPC 24144500000 Ready Meals PEANUT BUTTER CHOCOLATE CHIP BAR With PRETZEL                       This is Albertson's store-made item and sold by unit at point of sale with grocery store's scale label.",
+          "reason_for_recall": "Contains statement does not declare Almond",
+          "classification": "Class II",
+          "status": "Terminated",
+          "report_date": "20260610",
+          "recalling_firm": "Albertsons Companies LLC"
+        },
+        {
+          "recall_number": "H-0743-2026",
+          "product_description": "Loard's Peanut Butter Fudge Ice Cream - 32 oz",
+          "reason_for_recall": "Undeclared Milk, Peanuts.",
+          "classification": "Class II",
+          "status": "Ongoing",
+          "report_date": "20260513",
+          "recalling_firm": "Silver Moon LP dba Loard's Ice Cream"
+        }
+      ]
+    }
+  }
+}

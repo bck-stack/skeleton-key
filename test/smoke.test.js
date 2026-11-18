@@ -17,6 +17,17 @@ describe("repository scaffold (req 9.1, 9.2)", () => {
     expect(Object.keys(pkg.devDependencies).sort()).toEqual(["ajv", "fast-check", "vitest"]);
   });
 
+  it("blocks the network: the global fetch rejects inside tests (req 9.2)", async () => {
+    await expect(globalThis.fetch("https://api.fda.gov/food/enforcement.json")).rejects.toThrow(/network access is not allowed/);
+  });
+
+  it("README links to docs/guide.md, which exists and covers stdio and Worker (task 16)", () => {
+    expect(readFileSync(new URL("README.md", root), "utf8")).toContain("(docs/guide.md)");
+    const guide = readFileSync(new URL("docs/guide.md", root), "utf8");
+    for (const heading of ["## Add a source", "## Run over stdio", "## Run on a Worker"]) expect(guide).toContain(heading);
+    expect(existsSync(new URL("bin/skeleton-mcp.js", root))).toBe(true);
+  });
+
   it("has an MIT LICENSE", () => {
     expect(readFileSync(new URL("LICENSE", root), "utf8")).toMatch(/^MIT License/);
   });

@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     include: ["packages/*/test/**/*.test.js", "apps/*/test/**/*.test.js", "test/**/*.test.js"],
     environment: "node",
+    setupFiles: ["./test/helpers/no-network-setup.js"],
   },
 });

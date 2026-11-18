@@ -73,7 +73,8 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 7.6 When the method is unknown, the system shall return JSON-RPC error `-32601`.
 7.7 When the body is not valid JSON, the system shall return `-32700`. When it is not a valid JSON-RPC request object (including a batch array), the system shall return `-32600`.
 7.8 The handler shall never throw for arbitrary input.
-7.9 When it receives a JSON-RPC notification (no `id`), the system shall return HTTP 202 with no body. `GET` returns 405.
+7.9 When it receives a JSON-RPC notification (no `id`) or a client response (`result` or `error`, no `method`), the system shall return HTTP 202 with no body. Any method other than `POST` returns 405 with `Allow: POST`.
+7.7a If the handler fails unexpectedly, then the system shall return JSON-RPC error `-32603` instead of throwing.
 7.10 Where the stdio entry point is used, the system shall read newline-delimited JSON-RPC from stdin and write one JSON line per response to stdout, and shall write logs only to stderr.
 
 ## 8. JSON HTTP adapter
@@ -82,7 +83,8 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 8.1 When it receives `GET /api/<source>` for a loaded source, the system shall run the source with the query string as input (coercion enabled) and return the envelope as JSON.
 8.2 The system shall map envelope outcomes to HTTP status: success 200, `INVALID_INPUT` 400, `UPSTREAM_SHAPE_CHANGED` 502, `UPSTREAM_UNAVAILABLE` 503.
 8.3 When the source is unknown, the system shall return 404 with a failure envelope using code `INVALID_INPUT`.
-8.4 The system shall send `access-control-allow-origin: *` and answer `OPTIONS` with 204. Methods other than GET and OPTIONS return 405.
+8.4 The system shall send `access-control-allow-origin: *` and answer `OPTIONS` with 204. Methods other than GET and OPTIONS return 405 with a failure envelope and `Allow: GET, OPTIONS`.
+8.5 When a query key is repeated, the system shall return 400 with `INVALID_INPUT` naming the key, and shall not call `fetch`.
 
 ## 9. Repository quality
 9.1 The repository shall contain `LICENSE` (MIT), `package.json` with `"engines": {"node": ">=20"}`, and no runtime dependencies.
