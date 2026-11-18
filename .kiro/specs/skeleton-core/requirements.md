@@ -10,6 +10,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 1.3 When `tool.name` does not match `^[a-z][a-z0-9]*(_[a-z0-9]+)+$` or exceeds 64 characters, the system shall throw a `ContractError`.
 1.4 When `tool.description` lacks `Returns`, `Use when` or `Do not use`, or exceeds 600 characters, the system shall throw a `ContractError`.
 1.5 When a `{placeholder}` in `request.query` names a parameter that is not declared, the system shall throw a `ContractError`.
+1.5a When entries in `request.query` share a `key`, and any of them lacks `joinWith` or they declare different `joinWith` values, or a `query` template contains a `{` or `}` outside a `{placeholder}`, the system shall throw a `ContractError`.
 1.6 The system shall accept a contract with defaults applied (`timeoutMs` 8000, `cacheSeconds` 60, `required` false).
 
 ## 2. Validate input
@@ -40,7 +41,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 4.3 If the status is 5xx or 429, then the system shall return `UPSTREAM_UNAVAILABLE` with `retryable: true`.
 4.4 When the status is listed in `response.noMatch.status`, the system shall return `ok:true, count:0, records:[]`.
 4.5 If the status is another 4xx, or the body is not valid JSON, then the system shall return `UPSTREAM_SHAPE_CHANGED` with `retryable: false`.
-4.6 When `cacheSeconds` is greater than 0, the system shall serve an identical URL from an in-memory cache for that many seconds. Only `ok:true` envelopes (including empty ones) are cached. Errors are never cached.
+4.6 When `cacheSeconds` is greater than 0, the system shall serve an identical URL of the same source from an in-memory cache for that many seconds. Only `ok:true` envelopes (including empty ones) are cached. Errors are never cached.
 4.7 The system shall not import Node built-ins in `packages/core`.
 
 ## 5. Extract and normalize

@@ -21,7 +21,7 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 
 | path | role | exports |
 |---|---|---|
-| `packages/core/src/index.js` | public surface | `loadContract`, `loadContracts`, `runSource`, `ContractError`, `TRANSFORMS` |
+| `packages/core/src/index.js` | public surface | `loadContract`, `loadContracts`, `runSource`, `ContractError`, `TRANSFORMS`, `createCache` |
 | `packages/core/src/contract.js` | validate contract, apply defaults, cross-checks (req 1) | `loadContract(obj)`, `loadContracts(objs)`, `ContractError` |
 | `packages/core/src/path.js` | dot-path get with array indexes; `$` is root | `getPath(value, path)` |
 | `packages/core/src/validate.js` | input validation, defaults, optional coercion (req 2) | `validateInput(contract, input, {coerce})` → `{ok, value}` or `{ok:false, param, message}` |
@@ -29,7 +29,7 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 | `packages/core/src/transforms.js` | six total transforms (req 5.5) | `TRANSFORMS`, `applyTransforms(value, names)` |
 | `packages/core/src/extract.js` | records path, field map, required rules (req 5) | `extractRecords(contract, body)` → `{ok, records}` or `{ok:false}` |
 | `packages/core/src/envelope.js` | envelope constructors and types (req 6) | `success()`, `failure(source, code, message)` |
-| `packages/core/src/cache.js` | TTL map keyed by URL, injectable clock (req 4.6) | `createCache({now})` → `{get, set}` |
+| `packages/core/src/cache.js` | TTL map keyed by source id and URL, injectable clock, at most 500 entries (req 4.6) | `createCache({now, maxEntries})` → `{get, set, clear, size}` |
 | `packages/core/src/run.js` | orchestration, status classification (req 4) | `runSource(contract, input, deps, { coerce })` |
 | `packages/core/schema/source.schema.json` | JSON Schema for contracts (section 4) | file |
 | `packages/adapters/src/tools.js` | contract → MCP tool (`inputSchema`, name, description) | `toTool(contract)`, `paramsToJsonSchema(params)` |
@@ -39,13 +39,13 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 | `packages/adapters/src/node-sources.js` | read `*.source.json` from directories (Node `fs`) | `readContractFiles(dirs)` |
 | `test/contracts.test.js` | fixture tests for every shipped contract | n/a |
 
-`deps` = `{ fetch, now?: () => number, cache?: Cache }`. Defaults: global `fetch`, `Date.now`, a module-level cache per `createCache()` call. Tests always pass a stub `fetch`.
+`deps` = `{ fetch, now?: () => number, cache?: Cache }`. Defaults: global `fetch`, `Date.now`, a module-level cache shared by every `runSource` call that passes none. Tests always pass a stub `fetch`.
 
 ## 3. Data flow in `runSource`
 
 1. `validateInput` fails → `failure(INVALID_INPUT, "<param>: <reason>")`. No fetch.
-2. `buildUrl` → `url`. If `cacheSeconds > 0` and the cache holds `url` → return the cached envelope with the cached `fetchedAt`.
-3. `fetch(url, { method:"GET", headers:{accept:"application/json"}, signal })`, with `signal = AbortSignal.timeout(timeoutMs)`. A rejection or abort → `UPSTREAM_UNAVAILABLE`.
+2. `buildUrl` → `url`. If `cacheSeconds > 0` and the cache holds `source + url` → return a success envelope built from the cached records and the cached `fetchedAt`, with the caller's own `query`. (Changed in task 10: the first draft cached the whole envelope keyed by URL alone. That would show another caller's `query` when a parameter does not change the URL, and would share entries between two sources that build the same URL with different field maps.)
+3. `fetch(url, { method:"GET", headers:{accept:"application/json"}, signal })`. `signal` comes from an `AbortController` that a `setTimeout(timeoutMs)` aborts. The same timer rejects a race against the whole exchange (fetch plus reading the 2xx body), so a `fetch` that ignores the signal still ends at `timeoutMs`. A rejection, a body read failure or a timeout → `UPSTREAM_UNAVAILABLE`. (Changed from `AbortSignal.timeout`, which cannot end a `fetch` that ignores its signal.)
 4. Classify status, in this order:
    - in `noMatch.status` → empty success (cached);
    - `>= 500` or `429` → `UPSTREAM_UNAVAILABLE` (retryable);
@@ -162,7 +162,7 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
 }
 ```
 
-`contract.js` also enforces: `required` and `default` not together; `default` valid for its param type; `format` only on `date`; `escape` only on `string`; `enum` only on `string`; `joinWith` present when a `key` repeats; every `{placeholder}` in `query` is a declared param; every `{path}` in a field `template` is non-empty; `fixture.input` passes the contract's own input validation; description contains `Returns`, `Use when`, `Do not use`.
+`contract.js` also enforces: `required` and `default` not together; `default` valid for its param type; `format` only on `date`; `escape` only on `string`; `enum` only on `string`; `joinWith` present on every entry of a `key` that repeats, with the same value on all of them (clarified in task 5: the brief did not say which entry's joiner wins); every `{placeholder}` in `query` is a declared param, and a `query` template has no `{` or `}` outside a placeholder (added in task 5 so request building can never leave a raw brace, P8); every `{path}` in a field `template` is non-empty; `fixture.input` passes the contract's own input validation; description contains `Returns`, `Use when`, `Do not use`.
 
 ## 5. Types (JSDoc, in `envelope.js` and `contract.js`)
 
