@@ -74,3 +74,17 @@ export function extractRecords(contract, body) {
   }
   return { ok: true, records };
 }
+
+
+/**
+ * True when `body` holds an empty array at the records path. Used for
+ * `noMatch.emptyRecords`: a no-match status counts only with this body.
+ *
+ * @param {any} contract loaded contract
+ * @param {unknown} body parsed JSON body
+ * @returns {boolean}
+ */
+export function hasEmptyRecords(contract, body) {
+  const list = getPath(body, contract.response.recordsPath);
+  return Array.isArray(list) && list.length === 0;
+}

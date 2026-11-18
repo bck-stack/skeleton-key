@@ -18,7 +18,7 @@ failure: { ok: false, source, error: { code, message, retryable } }
 
 ## Rules
 1. Healthy source plus zero matches is `ok:true, count:0, records:[]`. Never an error.
-2. Upstream "no matches" that arrives as an HTTP status (openFDA returns 404) is normalized to the empty answer only when the contract declares it in `response.noMatch.status`. Never guess.
+2. Upstream "no matches" that arrives as an HTTP status (openFDA returns 404) is normalized to the empty answer only when the contract declares it in `response.noMatch.status`. Never guess. When the contract also sets `response.noMatch.emptyRecords: true` (NHTSA answers 400 with `results: []`), the status counts only if the body is JSON and the records path holds an empty array; any other body with that status is `UPSTREAM_SHAPE_CHANGED`.
 3. A response whose structure does not match the contract is `UPSTREAM_SHAPE_CHANGED`, retryable `false`, and returns no records. This covers: records path missing, and a required output field missing in every record.
 4. Timeouts and HTTP 5xx are `UPSTREAM_UNAVAILABLE`, retryable `true`.
 5. Invalid input is `INVALID_INPUT`, retryable `false`, with the parameter name in `message`, and is detected before any network call.

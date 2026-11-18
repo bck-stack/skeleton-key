@@ -129,7 +129,13 @@ export const contractArb = fc
     params: paramsArb,
     fields: fieldsArb,
     recordsPath: fc.constantFrom(...RECORDS_PATHS),
-    noMatch: fc.constantFrom(undefined, [404], [400, 404]),
+    noMatch: fc.constantFrom(
+      undefined,
+      { status: [404] },
+      { status: [400, 404] },
+      { status: [400], emptyRecords: true },
+      { status: [400, 404], emptyRecords: true },
+    ),
     timeoutMs: fc.constantFrom(undefined, 200, 5000),
     cacheSeconds: fc.constantFrom(undefined, 0, 30),
     source: fc.constantFrom("gen-source", "other"),
@@ -154,7 +160,7 @@ export const contractArb = fc
         input[request.requireOneOf[0]] = o.params[request.requireOneOf[0]].example;
       }
       const response = { recordsPath: o.recordsPath, fields: o.fields };
-      if (o.noMatch) response.noMatch = { status: o.noMatch };
+      if (o.noMatch) response.noMatch = structuredClone(o.noMatch);
       return {
         source: o.source,
         tool: {

@@ -67,7 +67,8 @@
               "type": "array",
               "minItems": 1,
               "items": { "type": "integer", "minimum": 400, "maximum": 499 }
-            }
+            },
+            "emptyRecords": { "const": true }
           }
         },
         "fields": {

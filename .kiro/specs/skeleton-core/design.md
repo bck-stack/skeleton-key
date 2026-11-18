@@ -47,7 +47,8 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 2. `buildUrl` → `url`. If `cacheSeconds > 0` and the cache holds `source + url` → return a success envelope built from the cached records and the cached `fetchedAt`, with the caller's own `query`. (Changed in task 10: the first draft cached the whole envelope keyed by URL alone. That would show another caller's `query` when a parameter does not change the URL, and would share entries between two sources that build the same URL with different field maps.)
 3. `fetch(url, { method:"GET", headers:{accept:"application/json"}, signal })`. `signal` comes from an `AbortController` that a `setTimeout(timeoutMs)` aborts. The same timer rejects a race against the whole exchange (fetch plus reading the 2xx body), so a `fetch` that ignores the signal still ends at `timeoutMs`. A rejection, a body read failure or a timeout → `UPSTREAM_UNAVAILABLE`. (Changed from `AbortSignal.timeout`, which cannot end a `fetch` that ignores its signal.)
 4. Classify status, in this order:
-   - in `noMatch.status` → empty success (cached);
+   - in `noMatch.status`, without `emptyRecords` → empty success (cached);
+   - in `noMatch.status`, with `emptyRecords: true` → the body is read and parsed. JSON whose `recordsPath` holds an empty array → empty success (cached). Any other body (not JSON, path missing, not an array, non-empty array) → `UPSTREAM_SHAPE_CHANGED` (amendment 2026-11-19, req 4.4a). This is the only non-2xx status whose body is read;
    - `>= 500` or `429` → `UPSTREAM_UNAVAILABLE` (retryable);
    - other non-2xx → `UPSTREAM_SHAPE_CHANGED`;
    - 2xx: parse JSON; parse failure → `UPSTREAM_SHAPE_CHANGED`.
@@ -114,7 +115,10 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
         "maxRecords": { "type": "integer", "minimum": 1, "maximum": 500 },
         "noMatch": {
           "type": "object", "additionalProperties": false, "required": ["status"],
-          "properties": { "status": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 400, "maximum": 499 } } }
+          "properties": {
+            "status": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 400, "maximum": 499 } },
+            "emptyRecords": { "const": true }
+          }
         },
         "fields": {
           "type": "object", "minProperties": 1,
@@ -200,8 +204,8 @@ A transform given a value of the wrong type returns `null`. `applyTransforms` st
 |---|---|---|
 | input fails validation | `INVALID_INPUT` | false |
 | timeout, network rejection, 5xx, 429 | `UPSTREAM_UNAVAILABLE` | true |
-| non-2xx not in `noMatch`, non-JSON, records path not an array, required field null in all records, internal exception | `UPSTREAM_SHAPE_CHANGED` | false |
-| declared `noMatch` status, empty array | success, `count:0` | n/a |
+| non-2xx not in `noMatch`, `noMatch` status with `emptyRecords` and a body that is not an empty records array, non-JSON, records path not an array, required field null in all records, internal exception | `UPSTREAM_SHAPE_CHANGED` | false |
+| declared `noMatch` status (with `emptyRecords`, only when the body holds an empty records array), empty array | success, `count:0` | n/a |
 | invalid contract | thrown `ContractError` at startup | n/a |
 
 Assumption: a 2xx body that parses but whose records array is empty is a valid empty answer, even if the upstream has changed in other ways. We can only detect what the contract declares.
@@ -244,7 +248,7 @@ Follows `.kiro/steering/testing.md`. Stub `fetch` helpers live in `test/helpers/
 | id | property | req |
 |---|---|---|
 | P1 | For any contract and any input object, with a stub that returns any status and any JSON body, `runSource` resolves to an envelope: success has `count === records.length`, ISO `fetchedAt`, `source` equal to the contract id; failure has `code` in the three codes and `retryable === (code === "UPSTREAM_UNAVAILABLE")`. It never throws. | 6.1 6.2 6.3 |
-| P2 | A 2xx body whose records array is `[]`, or a response with a declared `noMatch` status, gives `ok:true, count:0, records:[]`. | 4.4 5.1 |
+| P2 | A 2xx body whose records array is `[]`, or a response with a declared `noMatch` status (with `emptyRecords`, only when the body holds an empty records array), gives `ok:true, count:0, records:[]`. | 4.4 4.4a 5.1 |
 | P3 | A 2xx body with the records path removed or replaced by a non-array gives `UPSTREAM_SHAPE_CHANGED`, `retryable:false`. | 5.2 |
 | P4 | For each transform and any value of its declared input type, the result has the output type or is `null`, and no exception is thrown. For any value of any other type, the result is `null`. | 5.5 |
 | P5 | For any input that violates a param rule (missing required, wrong type, out of range, undeclared key, bad date), the result is `INVALID_INPUT`, `message` contains the parameter name, and the `fetch` stub has zero calls. | 2.1 to 2.3 |
@@ -253,11 +257,13 @@ Follows `.kiro/steering/testing.md`. Stub `fetch` helpers live in `test/helpers/
 | P8 | `buildUrl` called twice with equal validated input returns equal strings, and the string contains no `{` or `}` produced by an unresolved placeholder (inputs containing braces are percent-encoded, so no raw `{` appears). | 3.1 3.6 |
 | P9 | `createMcpHandler` never throws or rejects for arbitrary request bodies (`fc.anything()`, `fc.string()`, valid JSON-RPC shapes). Unknown methods give `-32601`. Every response is JSON-RPC 2.0 with matching `id`, or HTTP 202 for notifications. `tools/call` result has `structuredContent` deep-equal to the parsed text content. | 7.4 to 7.9 |
 | P10 | Every contract produced by the contract arbitrary passes both `loadContract` and the JSON Schema; deleting any required top-level key makes both reject it. | 1.1 9.3 |
+| P12 | For any contract with `noMatch.emptyRecords`, a declared status with a JSON body whose records path is an empty array gives `ok:true, count:0`. The same status with any other JSON body, or a body that is not JSON, gives `UPSTREAM_SHAPE_CHANGED`, `retryable:false`, no `records`. A status that is not declared is `UPSTREAM_SHAPE_CHANGED` even with an empty array. | 1.9 4.4a |
 | P11 | For any contract with `request.requireOneOf`, an input with none of the listed parameters gives `INVALID_INPUT` naming the first listed one, `retryable:false`, and `fetch` is never called. An input with any one listed parameter holding a real value passes validation. (P5's violation list also covers a set filled only with blank strings.) | 1.8 2.7 |
 
 Properties are never weakened to pass. If one fails, fix the code, or change the requirement here first.
 
 ## 10. Decisions and open points
+- Amendment (2026-11-19, from the NHTSA `recallsByVehicle` evidence): `response.noMatch.emptyRecords: true` makes a declared no-match status count only when the body parses as JSON and the records path holds an empty array. NHTSA answers HTTP 400 `{"Count":0,"Message":"Results returned successfully","results":[]}` for "no recalls" (checked with curl on 2026-11-19 for an unknown make and model, a model with no data for the year, and `modelYear=abc`), so the status alone cannot be trusted: a 400 with any other body is a real error and stays `UPSTREAM_SHAPE_CHANGED`. The flag lives inside `noMatch`, not as a new top-level key, because it only qualifies that rule. It accepts only `true`; `false` would equal omitting it, and a second spelling of the same thing is a variant we do not want. Its precondition is that the contract validates every parameter (for NHTSA an integer `modelYear` with `minimum` and `maximum`), so a 400 caused by malformed input is rejected by `INVALID_INPUT` before any fetch and never reaches this rule. Alternatives rejected: matching message text (the upstream wording is not documented), and treating all 400 as no-match (hides real errors). The body is read only for these statuses; for every other non-2xx status it is still ignored. Not covered by a shipped contract yet: the NHTSA source is added by source-smith, and until then P12, the run tests and the schema tests carry the rule.
 - No pagination: `limit` is a normal parameter. Paging can be added later as a contract feature; it is out of scope now.
 - `yyyymmddToIso` is an addition to the brief's transform list; openFDA dates need it.
 - Amendment (2026-11-18, approved by the user for recall-radar): `response.maxRecords` (CPSC has no limit parameter) and the `isoDate` transform (CPSC dates are `2026-07-23T00:00:00`). `maxRecords` is applied before mapping so that `count`, the required-field rule and the cache all see the kept records. `response.order` is not added: it is only needed if CPSC proves not newest-first (recall-radar task 3).

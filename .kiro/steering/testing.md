@@ -19,12 +19,12 @@ Each contract carries `fixture: { input, status, body }`. With a stub `fetch` th
 - field types match the declared `type`;
 - the built request URL equals `fixture.expectedUrl` when present;
 - a body with the records path removed gives `UPSTREAM_SHAPE_CHANGED`;
-- for contracts with `response.noMatch`, that status gives `ok:true, count:0`;
+- for contracts with `response.noMatch`, that status gives `ok:true, count:0` (with `emptyRecords`: the status with an empty records array gives `ok:true, count:0`, and the same status with any other body gives `UPSTREAM_SHAPE_CHANGED`);
 - the tool name matches the naming regex and the description contains `Returns`, `Use when`, `Do not use`.
 
 ## Property tests (minimum 100 runs each) must cover
 1. Envelope shape holds for any input object, whatever the stub returns.
-2. An empty answer (empty records array, or a declared noMatch status) is never an error.
+2. An empty answer (empty records array, or a declared noMatch status, with an empty records body when `emptyRecords` is set) is never an error. A declared status with `emptyRecords` and any other body is `UPSTREAM_SHAPE_CHANGED`.
 3. Any response missing the records path gives `UPSTREAM_SHAPE_CHANGED`, `retryable:false`.
 4. Every transform is total on its declared input type: returns the output type or `null`, never throws.
 5. Invalid input gives `INVALID_INPUT` naming the parameter, and `fetch` is never called.

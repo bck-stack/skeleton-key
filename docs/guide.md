@@ -13,7 +13,7 @@ For the spec-driven route (requirements, design, tasks from a template) see [add
    curl "https://api.example.com/path?limit=3" > body.json
    ```
    Paste the trimmed body into `fixture.body`, set `fixture.input` and `fixture.status`, and set `fixture.expectedUrl` to the URL the contract must build for that input.
-4. Declare `response.noMatch.status` only if the upstream documents a status that means "zero matches" (openFDA documents 404).
+4. Declare `response.noMatch.status` only if the upstream documents a status that means "zero matches" (openFDA documents 404). If the upstream also uses that status for real errors (NHTSA answers 400 with `"results":[]` for "no recalls"), add `"emptyRecords": true`: the status then counts only when the body is JSON with an empty records array, and any other body is `UPSTREAM_SHAPE_CHANGED`. Validate every parameter strictly in that case, so bad input never reaches the upstream.
 5. Run `npm test`. `test/contracts.test.js` picks up every `sources/*.source.json` and `apps/*/sources/*.source.json` and runs the fixture tests on it. A new contract needs no new test code.
 
 Never put source-specific code in `packages/*`. If a behavior cannot be written in the contract, change the spec in `.kiro/specs/skeleton-core/` first.

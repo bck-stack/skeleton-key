@@ -6,6 +6,7 @@ import { loadContract, ContractError } from "../src/contract.js";
 import { validateInput } from "../src/validate.js";
 import { buildUrl } from "../src/request.js";
 import { extractRecords } from "../src/extract.js";
+import { getPath as getPathForTest } from "../src/path.js";
 import { createCache } from "../src/cache.js";
 import { runSource } from "../src/run.js";
 import { foodContract } from "../../../test/helpers/sample-contracts.js";
@@ -315,12 +316,59 @@ describe("runSource properties (req 2.1, 4, 5, 6)", () => {
         }))));
         expect(empty).toMatchObject({ ok: true, count: 0, records: [] });
 
-        const declared = contract.response.noMatch?.status;
-        if (declared) {
-          const noMatchStatus = declared[pick % declared.length];
-          const r = await runSource(contract, input, freshDeps(makeFetch(() => ({ status: noMatchStatus, body: anyBody }))));
+        const noMatch = contract.response.noMatch;
+        if (noMatch) {
+          const noMatchStatus = noMatch.status[pick % noMatch.status.length];
+          // With emptyRecords the status counts only together with an empty records array.
+          const body = noMatch.emptyRecords ? wrapRecords(contract.response.recordsPath, []) : anyBody;
+          const r = await runSource(contract, input, freshDeps(makeFetch(() => ({ status: noMatchStatus, body }))));
           expect(r).toMatchObject({ ok: true, count: 0, records: [] });
         }
+      }),
+      RUNS,
+    );
+  });
+
+  it("P12: with noMatch.emptyRecords, a declared status is a no-match only for an empty records array", async () => {
+    const withEmptyRecords = loadedWithInputArb.filter(([c]) => c.response.noMatch?.emptyRecords === true);
+    const bodyArb = fc.oneof(
+      fc.jsonValue(),
+      fc.constant(null),
+      fc.constant(undefined),
+      fc.array(fc.jsonValue(), { minLength: 1, maxLength: 3 }),
+    );
+    await fc.assert(
+      fc.asyncProperty(withEmptyRecords, bodyArb, fc.boolean(), fc.nat(), async ([contract, input], anyBody, asText, pick) => {
+        const { status, emptyRecords } = contract.response.noMatch;
+        const declared = status[pick % status.length];
+        const path = contract.response.recordsPath;
+        const call = (response) => runSource(contract, input, freshDeps(makeFetch(() => response)));
+
+        // Empty array at the records path: empty success, however the body is encoded.
+        const empty = wrapRecords(path, []);
+        const ok = await call(asText ? { status: declared, text: JSON.stringify(empty) } : { status: declared, body: empty });
+        expect(ok).toMatchObject({ ok: true, count: 0, records: [] });
+
+        // Any other JSON body: shape error, not retryable, no records.
+        const other = await call({ status: declared, body: anyBody });
+        const isEmpty = getPathForTest(anyBody, path);
+        if (Array.isArray(isEmpty) && isEmpty.length === 0) {
+          expect(other).toMatchObject({ ok: true, count: 0 });
+        } else {
+          expect(other.ok).toBe(false);
+          expect(other.error).toMatchObject({ code: "UPSTREAM_SHAPE_CHANGED", retryable: false });
+          expect(other).not.toHaveProperty("records");
+        }
+
+        // A body that is not JSON: shape error.
+        const junk = await call({ status: declared, text: "<html>Bad Request</html>" });
+        expect(junk.error).toMatchObject({ code: "UPSTREAM_SHAPE_CHANGED", retryable: false });
+
+        // A status that is not declared is never a no-match, even with an empty array.
+        const undeclared = [400, 404, 410, 422].find((s) => !status.includes(s));
+        const nope = await call({ status: undeclared, body: empty });
+        expect(nope.error).toMatchObject({ code: "UPSTREAM_SHAPE_CHANGED", retryable: false });
+        expect(emptyRecords).toBe(true);
       }),
       RUNS,
     );

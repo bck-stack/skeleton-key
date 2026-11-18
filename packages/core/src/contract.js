@@ -236,7 +236,7 @@ function checkResponse(response, add) {
     if (!isObject(nm)) add("$.response.noMatch", "must be an object");
     else {
       for (const key of Object.keys(nm)) {
-        if (key !== "status") add(`$.response.noMatch.${key}`, "unknown key");
+        if (key !== "status" && key !== "emptyRecords") add(`$.response.noMatch.${key}`, "unknown key");
       }
       if (!has(nm, "status")) add("$.response.noMatch.status", "is required");
       else if (
@@ -244,6 +244,9 @@ function checkResponse(response, add) {
         !nm.status.every((s) => isInt(s) && s >= 400 && s <= 499)
       ) {
         add("$.response.noMatch.status", "must be a non-empty array of integers from 400 to 499");
+      }
+      if (has(nm, "emptyRecords") && nm.emptyRecords !== true) {
+        add("$.response.noMatch.emptyRecords", "must be true (omit it to accept any body)");
       }
     }
   }

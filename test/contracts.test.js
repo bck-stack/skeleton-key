@@ -51,6 +51,17 @@ function withoutPath(body, path) {
   return copy;
 }
 
+/** A body whose records path holds an empty array. */
+function emptyRecordsBody(path) {
+  if (path === "$") return [];
+  const root = {};
+  let node = root;
+  const segs = path.split(".");
+  for (const s of segs.slice(0, -1)) node = node[s] = {};
+  node[segs[segs.length - 1]] = [];
+  return root;
+}
+
 const freshDeps = (fetch) => ({ fetch, cache: createCache() });
 
 describe("shipped contracts: discovery", () => {
@@ -188,10 +199,26 @@ for (const { file, raw } of raws) {
     }
     if (noMatch) {
       for (const status of noMatch.status) {
-        it(`noMatch status ${status} gives ok:true, count:0`, async () => {
-          const out = await runSource(contract, fixture.input, freshDeps(respond({}, status)));
-          expect(out).toMatchObject({ ok: true, count: 0, records: [] });
-        });
+        if (noMatch.emptyRecords) {
+          it(`noMatch status ${status} with an empty records array gives ok:true, count:0`, async () => {
+            const body = emptyRecordsBody(contract.response.recordsPath);
+            const out = await runSource(contract, fixture.input, freshDeps(respond(body, status)));
+            expect(out).toMatchObject({ ok: true, count: 0, records: [] });
+          });
+          it(`noMatch status ${status} with any other body is UPSTREAM_SHAPE_CHANGED`, async () => {
+            for (const body of [{}, { error: "bad request" }, fixture.body]) {
+              const out = await runSource(contract, fixture.input, freshDeps(respond(body, status)));
+              expect(out.error).toMatchObject({ code: "UPSTREAM_SHAPE_CHANGED", retryable: false });
+            }
+            const text = await runSource(contract, fixture.input, freshDeps(respondText("<html></html>", status)));
+            expect(text.error.code).toBe("UPSTREAM_SHAPE_CHANGED");
+          });
+        } else {
+          it(`noMatch status ${status} gives ok:true, count:0`, async () => {
+            const out = await runSource(contract, fixture.input, freshDeps(respond({}, status)));
+            expect(out).toMatchObject({ ok: true, count: 0, records: [] });
+          });
+        }
       }
     } else {
       it("without noMatch, a 404 is UPSTREAM_SHAPE_CHANGED", async () => {

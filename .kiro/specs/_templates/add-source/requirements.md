@@ -24,7 +24,7 @@ Record only what was verified with a real call or in the official docs. Each fac
 1.2 When {{required_params}} is absent, the system shall return `INVALID_INPUT` naming it, and shall not call `fetch`.
 1.3 Where `{{param}}` is given, the system shall send it upstream as `{{upstream_param}}` in the format `{{upstream_format}}`.
 1.4 The system shall return records with exactly the fields {{output_fields}}, and shall mark {{identifying_fields}} as `required`.
-1.5 {{If the upstream declares a no-match status: When the upstream answers with status {{status}}, the system shall return `ok:true, count:0, records:[]`. Otherwise: When the upstream answers 200 with an empty records array, the system shall return `ok:true, count:0`.}}
+1.5 {{If the upstream declares a no-match status: When the upstream answers with status {{status}}, the system shall return `ok:true, count:0, records:[]`. If the status also carries real errors and the no-match has an empty records array in the body: When the upstream answers with status {{status}} and a JSON body whose records path is an empty array, the system shall return `ok:true, count:0, records:[]`; with any other body it shall return `UPSTREAM_SHAPE_CHANGED` (`noMatch.emptyRecords`). Otherwise: When the upstream answers 200 with an empty records array, the system shall return `ok:true, count:0`.}}
 1.6 If the response has no `{{records_path}}`, then the system shall return `UPSTREAM_SHAPE_CHANGED`.
 1.7 {{Add a numbered criterion for each source-specific behavior: sorting, limits, escaping, units. Delete this line if none.}}
 

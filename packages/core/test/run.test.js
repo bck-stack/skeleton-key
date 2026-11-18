@@ -85,6 +85,101 @@ describe("runSource: invalid input (2.1, 6.3)", () => {
   });
 });
 
+describe("runSource: noMatch.emptyRecords (4.4a)", () => {
+  const raw = foodContract();
+  raw.response.noMatch = { status: [400], emptyRecords: true };
+  const nhtsaLike = loadContract(raw);
+  const input = fixture.input;
+  const shapeError = (r) => expect(r.error).toMatchObject({ code: "UPSTREAM_SHAPE_CHANGED", retryable: false });
+
+  it("the declared status with a JSON body holding an empty records array is an empty success", async () => {
+    const body = { Count: 0, Message: "Results returned successfully", results: [] };
+    const r = await runSource(nhtsaLike, input, deps(respond(body, 400)));
+    expect(r).toMatchObject({ ok: true, count: 0, records: [] });
+  });
+
+  it("the declared status with any other body is UPSTREAM_SHAPE_CHANGED", async () => {
+    const bodies = [
+      { results: [{ recall_number: "F-1", product_description: "x" }] },
+      { error: { message: "Bad request" } },
+      { results: null },
+      { results: {} },
+      {},
+      [],
+      null,
+      "text",
+    ];
+    for (const body of bodies) {
+      const r = await runSource(nhtsaLike, input, deps(respond(body, 400)));
+      shapeError(r);
+      expect(r).not.toHaveProperty("records");
+    }
+  });
+
+  it("the declared status with a body that is not JSON is UPSTREAM_SHAPE_CHANGED", async () => {
+    for (const text of ["", "<html>Bad Request</html>", "{ results: [] "]) {
+      shapeError(await runSource(nhtsaLike, input, deps(respondText(text, 400))));
+    }
+  });
+
+  it("a status that is not declared stays UPSTREAM_SHAPE_CHANGED, even with an empty records body", async () => {
+    shapeError(await runSource(nhtsaLike, input, deps(respond({ results: [] }, 404))));
+  });
+
+  it("a 2xx response and 5xx are classified as before", async () => {
+    const ok = await runSource(nhtsaLike, input, deps(respond(fixture.body)));
+    expect(ok.count).toBe(2);
+    const down = await runSource(nhtsaLike, input, deps(respond({ results: [] }, 503)));
+    expect(down.error).toMatchObject({ code: "UPSTREAM_UNAVAILABLE", retryable: true });
+  });
+
+  it("the empty answer is cached; a rejected body is not", async () => {
+    const cache = createCache({ now: () => FIXED_NOW });
+    const empty = respond({ results: [] }, 400);
+    await runSource(nhtsaLike, input, { fetch: empty, now: () => FIXED_NOW, cache });
+    await runSource(nhtsaLike, input, { fetch: empty, now: () => FIXED_NOW, cache });
+    expect(empty.calls).toHaveLength(1);
+    const bad = respond({ error: "x" }, 400);
+    const cache2 = createCache({ now: () => FIXED_NOW });
+    await runSource(nhtsaLike, input, { fetch: bad, now: () => FIXED_NOW, cache: cache2 });
+    await runSource(nhtsaLike, input, { fetch: bad, now: () => FIXED_NOW, cache: cache2 });
+    expect(bad.calls).toHaveLength(2);
+  });
+
+  it("without emptyRecords, the declared status stays an empty success for any body", async () => {
+    const r = await runSource(food, input, deps(respond({ error: { code: "NOT_FOUND" } }, 404)));
+    expect(r).toMatchObject({ ok: true, count: 0 });
+  });
+
+  it("bad input never reaches the upstream: an integer parameter with min/max stops it before fetch", async () => {
+    const c = loadContract({
+      ...foodContract(),
+      params: {
+        ...foodContract().params,
+        model_year: { type: "integer", minimum: 1949, maximum: 2100, description: "Model year, four digits.", example: 2020 },
+      },
+      request: { ...foodContract().request, query: [...foodContract().request.query, { key: "modelYear", template: "{model_year}" }] },
+      response: { ...foodContract().response, noMatch: { status: [400], emptyRecords: true } },
+    });
+    for (const bad of [{ model_year: "abc" }, { model_year: 1800 }, { model_year: 2101 }, { model_year: 2020.5 }]) {
+      const fetch = respond({ results: [] }, 400);
+      const r = await runSource(c, { ...input, ...bad }, deps(fetch));
+      expect(r.error).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+      expect(r.error.message).toContain("model_year");
+      expect(fetch.calls).toHaveLength(0);
+    }
+    const viaHttp = respond({ results: [] }, 400);
+    const r = await runSource(c, { ...input, model_year: "abc" }, deps(viaHttp), { coerce: true });
+    expect(r.error.code).toBe("INVALID_INPUT");
+    expect(viaHttp.calls).toHaveLength(0);
+  });
+  it("works with recordsPath $ (the body is the array)", async () => {
+    const c = loadContract({ ...foodContract(), response: { ...foodContract().response, recordsPath: "$", noMatch: { status: [400], emptyRecords: true } } });
+    expect(await runSource(c, input, deps(respond([], 400)))).toMatchObject({ ok: true, count: 0 });
+    shapeError(await runSource(c, input, deps(respond({ results: [] }, 400))));
+  });
+});
+
 describe("runSource: status classification (4.3 to 4.5)", () => {
   const input = fixture.input;
 

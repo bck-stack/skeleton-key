@@ -63,6 +63,7 @@ describe("loadContract", () => {
       "$.request.staticQuery.a": (c) => (c.request.staticQuery = { a: 1 }),
       "$.response.maxRecords": (c) => (c.response.maxRecords = 0),
       "$.response.noMatch.status": (c) => (c.response.noMatch = { status: [200] }),
+      "$.response.noMatch.emptyRecords": (c) => (c.response.noMatch = { status: [400], emptyRecords: false }),
       "$.response.fields": (c) => (c.response.fields = {}),
       "$.response.fields.id": (c) => (c.response.fields.id.template = "{id}"),
       "$.response.fields.id.transform": (c) => (c.response.fields.id.transform = ["reverse"]),
@@ -71,6 +72,22 @@ describe("loadContract", () => {
       "$.fixture.body": (c) => delete c.fixture.body,
       "$.fixture.input": (c) => (c.fixture.input = []),
     };
+    it("1.9 accepts noMatch.emptyRecords: true and keeps it on the loaded contract", () => {
+      const c = minimalContract();
+      c.response.noMatch = { status: [400], emptyRecords: true };
+      expect(loadContract(c).response.noMatch).toEqual({ status: [400], emptyRecords: true });
+    });
+
+    it("1.9 rejects an emptyRecords that is not true, and unknown noMatch keys", () => {
+      for (const bad of [false, "true", 1, null]) {
+        const c = minimalContract();
+        c.response.noMatch = { status: [400], emptyRecords: bad };
+        expect(issuesOf(c).map((i) => i.path), String(bad)).toContain("$.response.noMatch.emptyRecords");
+      }
+      const c = minimalContract();
+      c.response.noMatch = { status: [400], bodyContains: "x" };
+      expect(issuesOf(c).map((i) => i.path)).toContain("$.response.noMatch.bodyContains");
+    });
     for (const [path, mutate] of Object.entries(mutations)) {
       it(`reports ${path}`, () => {
         const c = minimalContract();

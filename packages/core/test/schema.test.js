@@ -119,6 +119,19 @@ describe("source.schema.json (req 9.3)", () => {
     expect(validate(c)).toBe(false);
   });
 
+  it("accepts noMatch.emptyRecords: true; rejects false, non-boolean and unknown noMatch keys", () => {
+    let c = minimal();
+    c.response.noMatch = { status: [400], emptyRecords: true };
+    expect(validate(c), JSON.stringify(validate.errors)).toBe(true);
+    for (const bad of [false, "true", 1, null]) {
+      c = minimal();
+      c.response.noMatch = { status: [400], emptyRecords: bad };
+      expect(validate(c), String(bad)).toBe(false);
+    }
+    c = minimal();
+    c.response.noMatch = { status: [400], bodyContains: "x" };
+    expect(validate(c)).toBe(false);
+  });
   it("rejects an unknown transform and an unknown param type", () => {
     let c = minimal();
     c.response.fields.id.transform = ["reverse"];

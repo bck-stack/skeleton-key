@@ -14,6 +14,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 1.6 The system shall accept a contract with defaults applied (`timeoutMs` 8000, `cacheSeconds` 60, `required` false).
 1.7 Where `response.maxRecords` is present and is not an integer from 1 to 500, the system shall throw a `ContractError` naming `$.response.maxRecords`. (Amendment, approved 2026-11-18 for the recall-radar app.)
 1.8 Where `request.requireOneOf` is present, the system shall throw a `ContractError` naming the path when it is not a non-empty array of unique snake_case strings, or when an entry is not a declared parameter, is `required: true`, or has a `default` (such a parameter always has a value, so the rule could never fail), or when `fixture.input` gives none of the listed parameters. (Amendment, 2026-11-19, from the recall-radar open risk: an unfiltered CPSC call downloads 27.8 MB.)
+1.9 Where `response.noMatch.emptyRecords` is present and is not the boolean `true`, or `response.noMatch` has a key other than `status` and `emptyRecords`, the system shall throw a `ContractError` naming the path. (Amendment, 2026-11-19, NHTSA; see 4.4a.)
 
 ## 2. Validate input
 **User story:** As an agent, I want a precise error for a bad argument, so that I can correct it without a network round trip.
@@ -42,7 +43,8 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 4.1 The system shall issue a GET with an `AbortSignal` that fires after `timeoutMs`, and header `accept: application/json`.
 4.2 If the request times out or `fetch` rejects, then the system shall return `UPSTREAM_UNAVAILABLE` with `retryable: true`.
 4.3 If the status is 5xx or 429, then the system shall return `UPSTREAM_UNAVAILABLE` with `retryable: true`.
-4.4 When the status is listed in `response.noMatch.status`, the system shall return `ok:true, count:0, records:[]`.
+4.4 When the status is listed in `response.noMatch.status` and `response.noMatch.emptyRecords` is absent, the system shall return `ok:true, count:0, records:[]`.
+4.4a Where `response.noMatch.emptyRecords` is `true`, when the status is listed in `response.noMatch.status`, the system shall read the body and return `ok:true, count:0, records:[]` only if the body is valid JSON and the value at `recordsPath` is an empty array. For any other body (not JSON, records path missing, not an array, or a non-empty array) it shall return `UPSTREAM_SHAPE_CHANGED` with `retryable: false` and no records. (Amendment, 2026-11-19, from the NHTSA recallsByVehicle evidence: the upstream answers HTTP 400 `{"Count":0,"Message":"Results returned successfully","results":[]}` for a vehicle with no recalls, and a 400 with another body is a real error. A contract that declares 400 this way relies on parameter validation to keep malformed input from ever reaching the upstream, requirement 2.1.)
 4.5 If the status is another 4xx, or the body is not valid JSON, then the system shall return `UPSTREAM_SHAPE_CHANGED` with `retryable: false`.
 4.6 When `cacheSeconds` is greater than 0, the system shall serve an identical URL of the same source from an in-memory cache for that many seconds. Only `ok:true` envelopes (including empty ones) are cached. Errors are never cached.
 4.7 The system shall not import Node built-ins in `packages/core`.

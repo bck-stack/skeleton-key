@@ -42,7 +42,9 @@ Top level (all required, no other keys):
 `response`:
 - `recordsPath`: dot path to the array of records. `$` means the body itself is the array. A path segment may be an array index (`features.0`).
 - `maxRecords`: optional integer 1 to 500. Keeps only the first N records of the upstream order. Use it when the upstream has no limit parameter.
-- `noMatch`: optional `{ status: [int, ...] }`. HTTP statuses that mean "healthy, zero matches". Declare only what the upstream documents.
+- `noMatch`: optional `{ status: [int, ...], emptyRecords?: true }`. `status` lists the HTTP statuses (400 to 499) that mean "healthy, zero matches". Declare only what the upstream documents or what you recorded with a real call.
+  - `emptyRecords: true` makes the status a no-match only when the body is JSON and `recordsPath` holds an empty array. Any other body with that status is `UPSTREAM_SHAPE_CHANGED`. Use it when the upstream reuses a status for real errors (NHTSA answers 400 for "no recalls" and for other failures). Only `true` is allowed.
+  - A contract that declares a status like 400 this way must validate every parameter strictly (integer `minimum`/`maximum`, `enum`, `maxLength`), so bad input is `INVALID_INPUT` before any fetch and never reaches the upstream.
 - `fields`: object, output field name (snake_case) to a field spec.
 
 `response.fields.<name>`:
@@ -140,5 +142,5 @@ Top level (all required, no other keys):
 - Every `{placeholder}` names a declared param; every param is used by `query`, or is a pure filter you documented.
 - `required:true` only on fields that identify the record.
 - If the upstream returns its whole dataset for an unfiltered query, set `request.requireOneOf` and say so in the description.
-- `noMatch` is declared only when the upstream documents it.
+- `noMatch` is declared only when the upstream documents it or a real call shows it. If the status is shared with real errors (400), set `emptyRecords: true` and validate every parameter.
 - Fixture was recorded from the real upstream, then trimmed; `expectedUrl` is set.
