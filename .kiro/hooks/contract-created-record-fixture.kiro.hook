@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "name": "Contract created: record fixture and run contract tests",
+  "description": "When a new source contract appears, record one real upstream call as its fixture, add the no-match case if the source declares one, and run the contract tests.",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "sources/**/*.source.json",
+      "apps/*/sources/**/*.source.json"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new source contract was created. Follow .kiro/steering/source-contracts.md, answer-rules.md, naming.md and testing.md, and do not change packages/*. 1) Read the new contract. If its fixture is missing or a placeholder, make exactly one real call to the upstream with the contract's example inputs (build the URL from baseUrl, staticQuery and query), trim the response body to 2 to 5 records, and write it to fixture.body together with fixture.input, fixture.status and fixture.expectedUrl (the exact URL the contract must build). If the call fails, stop and tell me; do not invent a fixture. 2) If response.noMatch is declared, make one more real call that matches nothing, and save that response as test/fixtures/<source>.nomatch-<status>.json (follow the existing file in test/fixtures/). If noMatch is not declared, check whether the upstream answers a no-match query with 200 and an empty records array, and tell me which it does; do not add noMatch unless the upstream documents it. 3) Run `npm test -- test/contracts.test.js` and fix the contract (not the tests) until it passes. 4) Report the commands you ran, the files you changed, and anything you could not verify. Do not commit."
+  }
+}

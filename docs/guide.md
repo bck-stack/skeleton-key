@@ -4,6 +4,8 @@ Skeleton Key turns one public data source into an agent tool from one file, `sou
 
 ## Add a source
 
+For the spec-driven route (requirements, design, tasks from a template) see [adding-a-source.md](adding-a-source.md). The manual steps:
+
 1. Copy `sources/openfda-food-enforcement.source.json` to `sources/<your-source>.source.json`. The file name must equal the `source` id (kebab-case).
 2. Edit `source`, `tool`, `params`, `request`, `response`. The field reference with a full example is `.kiro/steering/source-contracts.md`. Tool naming and description rules are in `.kiro/steering/naming.md`. The JSON Schema is `packages/core/schema/source.schema.json` (add `"$schema": "../packages/core/schema/source.schema.json"` for editor validation).
 3. Record the fixture from the real API once, then trim it to 2 to 5 records:

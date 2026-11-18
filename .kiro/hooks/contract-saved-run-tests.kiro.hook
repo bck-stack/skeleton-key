@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "name": "Contract saved: run contract tests",
+  "description": "When a source contract is saved, run the fixture tests that iterate every contract (test/contracts.test.js).",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "sources/**/*.source.json",
+      "apps/*/sources/**/*.source.json"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "npm test -- test/contracts.test.js"
+  }
+}
