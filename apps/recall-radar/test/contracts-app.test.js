@@ -41,16 +41,17 @@ describe("recalls_search_drug: recorded no-match response (requirement 3.1)", ()
   });
 });
 
-describe("the three tools (requirements 4.7, 5.1, 5.4, 5.5)", () => {
+describe("the first three tools (requirements 4.7, 5.1, 5.4, 5.5)", () => {
   const names = ["food", "drug", "cpsc"];
   const all = names.map((k) => [k, load(k)]);
+  const FIRST_THREE = TOOL_NAMES.slice(0, 3);
 
-  it("are named and ordered as in requirement 5.1", () => {
+  it("are named and ordered as in requirement 5.1, and the vehicle tool follows", () => {
     expect(all.map(([, c]) => c.tool.name)).toEqual(["recalls_search_food", "recalls_search_drug", "recalls_search_consumer"]);
-    expect(all.map(([, c]) => c.tool.name)).toEqual(TOOL_NAMES);
+    expect([...all.map(([, c]) => c.tool.name), load("vehicle").tool.name]).toEqual(TOOL_NAMES);
   });
 
-  it("the app contracts load together in that order, from the three paths", () => {
+  it("the app contracts load together in that order, from the four paths", () => {
     const loaded = loadAppContracts((p) => JSON.parse(readFileSync(new URL(p, new URL("../src/contracts.js", import.meta.url)), "utf8")));
     expect(loaded.map((c) => c.tool.name)).toEqual(TOOL_NAMES);
   });
@@ -67,8 +68,8 @@ describe("the three tools (requirements 4.7, 5.1, 5.4, 5.5)", () => {
       it("says an empty list means no matching records", () => {
         expect(d).toContain("An empty list means no matching records");
       });
-      it("names the two other tools as alternatives and not itself", () => {
-        for (const other of TOOL_NAMES.filter((n) => n !== contract.tool.name)) expect(d).toContain(other);
+      it("names the two other original tools as alternatives and not itself", () => {
+        for (const other of FIRST_THREE.filter((n) => n !== contract.tool.name)) expect(d).toContain(other);
         expect(d).not.toContain(contract.tool.name);
       });
       it("every parameter has a description with a unit or format hint and an example", () => {
@@ -94,6 +95,6 @@ describe("the three tools (requirements 4.7, 5.1, 5.4, 5.5)", () => {
 
   it("no contract file is copied into the app (requirement 5.2)", () => {
     const dir = new URL("../sources/", import.meta.url);
-    expect(readdirSync(dir).sort()).toEqual(["cpsc-recalls.source.json", "openfda-drug-enforcement.source.json"]);
+    expect(readdirSync(dir).sort()).toEqual(["cpsc-recalls.source.json", "nhtsa-vehicle-recalls.source.json", "openfda-drug-enforcement.source.json"]);
   });
 });

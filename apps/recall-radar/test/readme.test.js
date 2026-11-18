@@ -38,7 +38,7 @@ describe("apps/recall-radar/README.md", () => {
     const calls = blocks.map((b) => JSON.parse(b)).filter((j) => j.name && j.arguments);
     expect(calls.map((c) => c.name)).toEqual(TOOL_NAMES);
     const answers = blocks.map((b) => JSON.parse(b)).filter((j) => j.ok === true);
-    expect(answers).toHaveLength(3);
+    expect(answers).toHaveLength(4);
     for (const [i, call] of calls.entries()) {
       const contract = contracts.find((c) => c.tool.name === call.name);
       expect(call.arguments).toEqual(answers[i].query);

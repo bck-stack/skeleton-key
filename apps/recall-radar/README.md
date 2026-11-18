@@ -1,18 +1,21 @@
 # Recall Radar
 
-An MCP server that answers "is this product recalled?" for chat agents. It has three tools and no API keys:
+An MCP server that answers "is this product recalled?" for chat agents. It has four tools and no API keys:
 
 | tool | source | covers |
 |---|---|---|
 | `recalls_search_food` | openFDA food enforcement reports | food recalls in the US |
 | `recalls_search_drug` | openFDA drug enforcement reports | drug recalls in the US (unvalidated data, not medical advice) |
 | `recalls_search_consumer` | US Consumer Product Safety Commission | toys, strollers, appliances and other consumer products (at most 25 records) |
+| `recalls_search_vehicle` | NHTSA recalls by vehicle | cars and trucks, by make, model and model year (at most 50 records) |
 
-All three take optional `product`, `firm`, `date_from` and `date_to` (`YYYY-MM-DD`, inclusive). The two openFDA tools also take `limit` (1 to 50, default 10). `recalls_search_consumer` needs at least one of `product`, `firm` or `date_from` (`date_to` alone is not enough). Without a filter the CPSC sends its whole history (about 28 MB), so the tool answers `INVALID_INPUT` and makes no request.
+The first three take optional `product`, `firm`, `date_from` and `date_to` (`YYYY-MM-DD`, inclusive). The two openFDA tools also take `limit` (1 to 50, default 10). `recalls_search_consumer` needs at least one of `product`, `firm` or `date_from` (`date_to` alone is not enough). Without a filter the CPSC sends its whole history (about 28 MB), so the tool answers `INVALID_INPUT` and makes no request.
+
+`recalls_search_vehicle` takes `make`, `model` and `model_year` (an integer, 1949 to 2100), and all three are required. The NHTSA answers an unknown make or model, and a vehicle with no recalls, with the same empty answer, so a misspelled name gives an empty list. `report_received_date` is passed through as the NHTSA sends it: the order of day and month is not stable (`04/11/2020` and `20/12/2023` both occur), so do not parse it.
 
 Every answer has one of two shapes. `{ ok: true, source, query, count, records, fetchedAt }`: `count: 0` with an empty list means no matching recalls, which is a valid answer. `{ ok: false, source, error: { code, message, retryable } }` with the code `INVALID_INPUT`, `UPSTREAM_SHAPE_CHANGED` or `UPSTREAM_UNAVAILABLE`.
 
-The app contains wiring only. The behavior lives in the contracts: `sources/openfda-food-enforcement.source.json` (shared with the skeleton), `apps/recall-radar/sources/openfda-drug-enforcement.source.json` and `apps/recall-radar/sources/cpsc-recalls.source.json`. Spec: `.kiro/specs/recall-radar/`.
+The app contains wiring only. The behavior lives in the contracts: `sources/openfda-food-enforcement.source.json` (shared with the skeleton), `apps/recall-radar/sources/openfda-drug-enforcement.source.json`, `apps/recall-radar/sources/cpsc-recalls.source.json` and `apps/recall-radar/sources/nhtsa-vehicle-recalls.source.json`. Specs: `.kiro/specs/recall-radar/` and `.kiro/specs/add-nhtsa-vehicle-recalls/`.
 
 ## Run over stdio (Node 20+)
 
@@ -53,7 +56,7 @@ npm run deploy   # npx wrangler deploy, needs a Cloudflare account and `wrangler
 
 **Manual check, 2026-11-19 (run by hand, not by `npm test`).** `npx wrangler dev` (workerd) on `127.0.0.1:8799`: `POST /mcp` `tools/list` returned the three tools. `tools/call` with `recalls_search_food {"product":"peanut butter","limit":2}` gave `ok`, count 2 (H-1386-2026). `recalls_search_drug {"product":"metformin","limit":2}` gave `ok`, count 2 (D-0657-2026). `recalls_search_consumer {"product":"stroller"}` gave `ok`, count 25 (recall 26639). `GET /` gave 404 and `GET /mcp` gave 405. The unit tests run the Worker code with Node's `Request` and `Response`, not inside the Workers runtime.
 
-**Deployed, 2026-11-19 (checked by the project owner by hand, not by `npm test`).** The Worker is live at `https://recall-radar.launch-engine.workers.dev/mcp` (Cloudflare). `initialize` answered, and `tools/call` `recalls_search_consumer {"product":"crib"}` gave `ok` with 25 records. That check was made before the filter rule above; redeploy to put the rule on the live URL. Any client that speaks Streamable HTTP can use the URL. Quick check:
+**Deployed, 2026-11-19 (checked by the project owner by hand, not by `npm test`).** The Worker is live at `https://recall-radar.launch-engine.workers.dev/mcp` (Cloudflare). `initialize` answered, and `tools/call` `recalls_search_consumer {"product":"crib"}` gave `ok` with 25 records. That check was made before the filter rule above; redeploy to put the rule on the live URL. The `recalls_search_vehicle` tool is also not on the live URL until the app is redeployed. Any client that speaks Streamable HTTP can use the URL. Quick check:
 
 ```
 curl -s https://recall-radar.launch-engine.workers.dev/mcp -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -148,7 +151,39 @@ Each example shows the arguments of a `tools/call` and the first record of the a
 }
 ```
 
-An answer with no matches is `{ "ok": true, ..., "count": 0, "records": [] }`.
+### recalls_search_vehicle
+
+Recorded on 2026-11-19 from the NHTSA (the contract fixture holds the first 2 of the 3 records).
+
+```json
+{ "name": "recalls_search_vehicle", "arguments": { "make": "toyota", "model": "camry", "model_year": 2020 } }
+```
+
+```json
+{
+  "ok": true,
+  "source": "nhtsa-vehicle-recalls",
+  "query": { "make": "toyota", "model": "camry", "model_year": 2020 },
+  "count": 2,
+  "records": [
+    {
+      "campaign_number": "20V682000",
+      "manufacturer": "Toyota Motor Engineering & Manufacturing",
+      "component": "FUEL SYSTEM, GASOLINE:DELIVERY:FUEL PUMP",
+      "summary": "Toyota Motor Engineering & Manufacturing (Toyota) is recalling certain 2018-2019 4Runner, 2019-2020 Avalon, 2019 Corolla Hatchback, 2017-2019 Highlander, 2018-2020 Camry, 2020 Corolla, 2018-2019 Land Cruiser, 2017-2020 Tacoma, 2019-2020 RAV4, 2019-2020 Sequoia, 2017-2020 Sienna, 2019-2020 Tundra, 2018-2020 Lexus ES350, 2017 Lexus GS200t, 2017-2019 Lexus GS350, 2019 Lexus GS300, 2018-2020 Lexus LC500h, 2019-2020 Lexus LS500, 2018-2019 Lexus GX460, 2017 Lexus IS200t, 2019 Lexus IS300, 2019 Lexus IS350, 2018-2020 Lexus LC500, 2018 Lexus LS500, 2019 Lexus LS500h, 2018-2019 Lexus LX570, 2017 Lexus RC200t, 2019 Lexus RC300, RC350, 2017 and 2019-2020 Lexus RX350, 2018-2020 RX350L, 2019 Lexus UX200, 2018-2019 Lexus NX300 vehicles.  The low-pressure fuel pump inside the fuel tank may fail.",
+      "consequence": "If the fuel pump fails, the engine can stall while driving, increasing the risk of a crash.",
+      "remedy": "Toyota will notify owners, and dealers will replace the fuel pump assembly with an improved one, free of charge.  Owners of specific models were notified that remedy parts were available starting January 21, 2021.  Owners of other models will be notified as remedy parts become available.  Remedy parts should be available for all affected vehicles by late March 2021.  Owners may contact Toyota customer service at 1-888-270-9371 or Lexus customer service at 1-800-255-3987.  Note: This recall is an expansion of recall 20V-012.  Toyota's number for this recall is 20TA02.  Lexus' number for this recall is 20LA01.",
+      "report_received_date": "04/11/2020",
+      "park_it": false,
+      "park_outside": false,
+      "over_the_air_update": false
+    }
+  ],
+  "fetchedAt": "2026-11-19T20:00:00.000Z"
+}
+```
+
+(A second record follows in the real answer.) An answer with no matches is `{ "ok": true, ..., "count": 0, "records": [] }`.
 
 ## Tests
 

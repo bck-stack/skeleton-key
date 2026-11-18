@@ -11,7 +11,11 @@ export const RAW = {
   food: () => readJson("../../../sources/openfda-food-enforcement.source.json"),
   drug: () => readJson("../sources/openfda-drug-enforcement.source.json"),
   cpsc: () => readJson("../sources/cpsc-recalls.source.json"),
+  vehicle: () => readJson("../sources/nhtsa-vehicle-recalls.source.json"),
 };
+
+/** Valid arguments for each tool; the vehicle tool needs make, model and model_year. */
+export const argsFor = (toolName) => (toolName === "recalls_search_vehicle" ? { make: "toyota", model: "camry", model_year: 2020 } : { product: "x" });
 
 export const load = (which) => loadContract(RAW[which]());
 

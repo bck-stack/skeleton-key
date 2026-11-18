@@ -11,6 +11,7 @@ import { main } from "../bin/main.js";
 import { CONTRACT_FILES, TOOL_NAMES, loadAppContracts } from "../src/contracts.js";
 import { paramsToJsonSchema } from "../../../packages/adapters/src/tools.js";
 import { makeFetch } from "../../../test/helpers/stub-fetch.js";
+import { argsFor } from "./helpers.js";
 
 const bin = fileURLToPath(new URL("../bin/recall-radar.js", import.meta.url));
 const readJson = (relative) => JSON.parse(readFileSync(new URL(relative, new URL("../src/contracts.js", import.meta.url)), "utf8"));
@@ -56,11 +57,11 @@ describe("recall-radar stdio (req 7.1)", () => {
   });
 
   it("nothing but JSON-RPC on stdout, logs on stderr", async () => {
-    const calls = TOOL_NAMES.map((name, i) => msg(10 + i, "tools/call", { name, arguments: { product: "x" } }));
+    const calls = TOOL_NAMES.map((name, i) => msg(10 + i, "tools/call", { name, arguments: argsFor(name) }));
     const input = [msg(1, "initialize", {}), "{ not json", msg(2, "tools/list"), ...calls, msg(3, "nope")].join("\n") + "\n";
     const { stdout, stderr } = await serve(input);
     const lines = jsonLines(stdout);
-    expect(lines).toHaveLength(7);
+    expect(lines).toHaveLength(8);
     for (const l of lines) expect(l.jsonrpc).toBe("2.0");
     expect(stdout.split("\n").filter(Boolean)).toHaveLength(lines.length);
     expect(stderr).toContain("recall-radar: serving");
@@ -68,25 +69,28 @@ describe("recall-radar stdio (req 7.1)", () => {
   });
 
   it("a tools/call reaches the stub fetch with the right endpoint for each tool and returns the envelope", async () => {
-    const fetch = makeFetch((url) => (url.includes("saferproducts") ? { status: 200, body: [] } : { status: 404, body: {} }));
-    const input = TOOL_NAMES.map((name, i) => msg(i, "tools/call", { name, arguments: { product: "x" } })).join("\n") + "\n";
+    const fetch = makeFetch((url) =>
+      url.includes("saferproducts") ? { status: 200, body: [] } : url.includes("nhtsa") ? { status: 400, body: { Count: 0, Message: "Results returned successfully", results: [] } } : { status: 404, body: {} },
+    );
+    const input = TOOL_NAMES.map((name, i) => msg(i, "tools/call", { name, arguments: argsFor(name) })).join("\n") + "\n";
     const { stdout } = await serve(input, { fetch });
     const results = jsonLines(stdout).map((l) => l.result);
-    expect(results.map((r) => r.structuredContent.source)).toEqual(["openfda-food-enforcement", "openfda-drug-enforcement", "cpsc-recalls"]);
+    expect(results.map((r) => r.structuredContent.source)).toEqual(["openfda-food-enforcement", "openfda-drug-enforcement", "cpsc-recalls", "nhtsa-vehicle-recalls"]);
     for (const r of results) expect(r).toMatchObject({ isError: false, structuredContent: { ok: true, count: 0 } });
     expect(fetch.calls.map((c) => new URL(c.url).origin + new URL(c.url).pathname)).toEqual([
       "https://api.fda.gov/food/enforcement.json",
       "https://api.fda.gov/drug/enforcement.json",
       "https://www.saferproducts.gov/RestWebServices/Recall",
+      "https://api.nhtsa.gov/recalls/recallsByVehicle",
     ]);
   });
 });
 
 describe("RR-P1 stdio: tool set", () => {
-  it("tools/list returns exactly the three tools in order, with the contracts' input schemas", async () => {
+  it("tools/list returns exactly the four tools in order, with the contracts' input schemas", async () => {
     const { stdout } = await serve(`${msg(1, "tools/list")}\n`);
     const tools = JSON.parse(stdout).result.tools;
-    expect(tools.map((t) => t.name)).toEqual(["recalls_search_food", "recalls_search_drug", "recalls_search_consumer"]);
+    expect(tools.map((t) => t.name)).toEqual(["recalls_search_food", "recalls_search_drug", "recalls_search_consumer", "recalls_search_vehicle"]);
     const contracts = loadAppContracts(readJson);
     tools.forEach((t, i) => {
       expect(t.description).toBe(contracts[i].tool.description);
@@ -142,8 +146,8 @@ describe("recall-radar stdio: invalid contract (req 7.2)", () => {
     expect(r.stdout).toBe("");
   });
 
-  it("CONTRACT_FILES has the three contracts, food first", () => {
-    expect(CONTRACT_FILES).toHaveLength(3);
+  it("CONTRACT_FILES has the four contracts, food first", () => {
+    expect(CONTRACT_FILES).toHaveLength(4);
     expect(CONTRACT_FILES[0]).toContain("sources/openfda-food-enforcement.source.json");
   });
 });

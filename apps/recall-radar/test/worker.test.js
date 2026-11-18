@@ -14,6 +14,7 @@ import { paramsToJsonSchema } from "../../../packages/adapters/src/tools.js";
 import { TOOL_NAMES, loadAppContracts } from "../src/contracts.js";
 import { SERVER_INFO } from "../src/server-info.js";
 import { makeFetch } from "../../../test/helpers/stub-fetch.js";
+import { argsFor } from "./helpers.js";
 
 const readJson = (relative) => JSON.parse(readFileSync(new URL(relative, new URL("../src/contracts.js", import.meta.url)), "utf8"));
 const url = (path = "/mcp") => `https://recall-radar.example${path}`;
@@ -22,11 +23,17 @@ const post = (body, path = "/mcp") =>
 const rpc = (method, params, id = 1) => ({ jsonrpc: "2.0", id, method, params });
 
 const emptyAnswers = () =>
-  makeFetch((u) => (u.includes("saferproducts") ? { status: 200, body: [] } : { status: 404, body: { error: { code: "NOT_FOUND" } } }));
+  makeFetch((u) =>
+    u.includes("saferproducts")
+      ? { status: 200, body: [] }
+      : u.includes("nhtsa")
+        ? { status: 400, body: { Count: 0, Message: "Results returned successfully", results: [] } }
+        : { status: 404, body: { error: { code: "NOT_FOUND" } } },
+  );
 const testWorker = (fetch = emptyAnswers()) => createWorker({ deps: { fetch, cache: createCache() } });
 
 describe("worker routing (6.1)", () => {
-  it("POST /mcp tools/list returns the three tools in order", async () => {
+  it("POST /mcp tools/list returns the four tools in order", async () => {
     const res = await testWorker().fetch(post(rpc("tools/list")));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -71,7 +78,7 @@ describe("worker tools/call (5.3)", () => {
     const w = testWorker(fetch);
     const sources = [];
     for (const [i, name] of TOOL_NAMES.entries()) {
-      const res = await w.fetch(post(rpc("tools/call", { name, arguments: { product: "x" } }, i)));
+      const res = await w.fetch(post(rpc("tools/call", { name, arguments: argsFor(name) }, i)));
       const { result } = await res.json();
       expect(result.isError).toBe(false);
       expect(result.content).toHaveLength(1);
@@ -79,8 +86,8 @@ describe("worker tools/call (5.3)", () => {
       expect(result.structuredContent).toMatchObject({ ok: true, count: 0, records: [] });
       sources.push(result.structuredContent.source);
     }
-    expect(sources).toEqual(["openfda-food-enforcement", "openfda-drug-enforcement", "cpsc-recalls"]);
-    expect(fetch.calls).toHaveLength(3);
+    expect(sources).toEqual(["openfda-food-enforcement", "openfda-drug-enforcement", "cpsc-recalls", "nhtsa-vehicle-recalls"]);
+    expect(fetch.calls).toHaveLength(4);
   });
 
   it("an invalid argument is a result with isError and INVALID_INPUT, and no fetch", async () => {
@@ -122,10 +129,10 @@ describe("a throwing handler gives -32603 (6.4)", () => {
 });
 
 describe("RR-P1 worker: tool set, and equality with the stdio entry", () => {
-  it("tools/list has exactly the three tools in order with the contracts' input schemas", async () => {
+  it("tools/list has exactly the four tools in order with the contracts' input schemas", async () => {
     const contracts = loadAppContracts(readJson);
     const body = await (await testWorker().fetch(post(rpc("tools/list")))).json();
-    expect(body.result.tools.map((t) => t.name)).toEqual(["recalls_search_food", "recalls_search_drug", "recalls_search_consumer"]);
+    expect(body.result.tools.map((t) => t.name)).toEqual(["recalls_search_food", "recalls_search_drug", "recalls_search_consumer", "recalls_search_vehicle"]);
     body.result.tools.forEach((t, i) => expect(t.inputSchema).toEqual(paramsToJsonSchema(contracts[i].params)));
   });
 

@@ -39,11 +39,11 @@
     },
     "shell": {
       "allowedCommands": [
-        "npm test",
-        "npm test -- [A-Za-z0-9_./-]+",
-        "node bin/skeleton-mcp\\.js",
-        "node apps/[a-z-]+/bin/[a-z-]+\\.js",
-        "echo '\\{[^']*\\}' \\| node bin/skeleton-mcp\\.js"
+        "npm test( -- [A-Za-z0-9_./-]+)?",
+        "npx vitest run [A-Za-z0-9_./ -]+",
+        "node bin/skeleton-mcp.js.*",
+        "node apps/[a-z-]+/bin/[a-z-]+.js.*",
+        "curl -s .*https://[^ ]+"
       ],
       "autoAllowReadonly": false,
       "denyByDefault": true
@@ -72,7 +72,19 @@
         "capability": "shell",
         "match": [
           "npm test",
-          "node bin/skeleton-mcp.js"
+          "npm test *",
+          "npx vitest run *",
+          "node bin/skeleton-mcp.js",
+          "node bin/skeleton-mcp.js *",
+          "node apps/*/bin/*.js",
+          "curl -s https://*",
+          "curl -s \"https://*\"",
+          "curl.exe -s https://*",
+          "curl.exe -s \"https://*\"",
+          "curl -s -o * https://*",
+          "curl -s -o * \"https://*\"",
+          "curl -s -w * \"https://*\"",
+          "curl -s -w * https://*"
         ],
         "effect": "allow"
       },
@@ -82,8 +94,20 @@
           "*"
         ],
         "exclude": [
+          "npm test",
+          "npm test *",
+          "npx vitest run *",
           "node bin/skeleton-mcp.js",
-          "npm test"
+          "node bin/skeleton-mcp.js *",
+          "node apps/*/bin/*.js",
+          "curl -s https://*",
+          "curl -s \"https://*\"",
+          "curl.exe -s https://*",
+          "curl.exe -s \"https://*\"",
+          "curl -s -o * https://*",
+          "curl -s -o * \"https://*\"",
+          "curl -s -w * \"https://*\"",
+          "curl -s -w * https://*"
         ],
         "effect": "deny"
       },

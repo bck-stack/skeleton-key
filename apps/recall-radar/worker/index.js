@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker entry (requirements 6.1 to 6.4). No Node built-ins, no
- * environment variables, no secrets. The three contracts are imported as JSON
+ * environment variables, no secrets. The four contracts are imported as JSON
  * (Wrangler bundles them) and validated when the module loads, so an invalid
  * contract fails the deploy-time check or the first start, never a request.
  */
@@ -8,6 +8,7 @@ import { createMcpHandler } from "@skeleton-key/adapters";
 import food from "../../../sources/openfda-food-enforcement.source.json";
 import drug from "../sources/openfda-drug-enforcement.source.json";
 import cpsc from "../sources/cpsc-recalls.source.json";
+import vehicle from "../sources/nhtsa-vehicle-recalls.source.json";
 import { CONTRACT_FILES, loadAppContracts } from "../src/contracts.js";
 import { SERVER_INFO } from "../src/server-info.js";
 
@@ -16,6 +17,7 @@ const BUNDLED = new Map([
   [CONTRACT_FILES[0], food],
   [CONTRACT_FILES[1], drug],
   [CONTRACT_FILES[2], cpsc],
+  [CONTRACT_FILES[3], vehicle],
 ]);
 
 const contracts = loadAppContracts((file) => BUNDLED.get(file));

@@ -1,0 +1,181 @@
+{
+  "$schema": "../../../packages/core/schema/source.schema.json",
+  "source": "nhtsa-vehicle-recalls",
+  "tool": {
+    "name": "recalls_search_vehicle",
+    "description": "Returns NHTSA safety recalls for one vehicle (campaign number, manufacturer, component, summary, consequence, remedy, report date, park-it flags), at most 50 records. Use when asked whether a car or truck has been recalled and what the fix is. Give make, model and model_year. An empty list means no matching records; a misspelled make or model also gives an empty list. Do not use for food (use recalls_search_food), drugs (use recalls_search_drug) or other consumer products (use recalls_search_consumer)."
+  },
+  "params": {
+    "make": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 50,
+      "description": "Vehicle make, as sold in the US, for example the brand name. Required.",
+      "example": "toyota"
+    },
+    "model": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 50,
+      "description": "Vehicle model name, for example a sedan or truck name. Required.",
+      "example": "camry"
+    },
+    "model_year": {
+      "type": "integer",
+      "required": true,
+      "minimum": 1949,
+      "maximum": 2100,
+      "description": "Four-digit model year, 1949 to 2100, for example 2020. Required.",
+      "example": 2020
+    }
+  },
+  "request": {
+    "baseUrl": "https://api.nhtsa.gov/recalls/recallsByVehicle",
+    "query": [
+      {
+        "key": "make",
+        "template": "{make}"
+      },
+      {
+        "key": "model",
+        "template": "{model}"
+      },
+      {
+        "key": "modelYear",
+        "template": "{model_year}"
+      }
+    ],
+    "timeoutMs": 8000,
+    "cacheSeconds": 60
+  },
+  "response": {
+    "recordsPath": "results",
+    "maxRecords": 50,
+    "noMatch": {
+      "status": [
+        400
+      ],
+      "emptyRecords": true
+    },
+    "fields": {
+      "campaign_number": {
+        "from": "NHTSACampaignNumber",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "NHTSA campaign number, for example 20V682000."
+      },
+      "manufacturer": {
+        "from": "Manufacturer",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Company that filed the recall."
+      },
+      "component": {
+        "from": "Component",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Affected vehicle system, as NHTSA prints it."
+      },
+      "summary": {
+        "from": "Summary",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "What is wrong and which vehicles are affected. It can name other models and years."
+      },
+      "consequence": {
+        "from": "Consequence",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Risk to the driver if the defect is not fixed."
+      },
+      "remedy": {
+        "from": "Remedy",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "The fix, and how the owner gets it."
+      },
+      "report_received_date": {
+        "from": "ReportReceivedDate",
+        "type": "string",
+        "description": "Raw string as NHTSA sends it, not converted. The order of day and month is not stable: 04/11/2020 and 20/12/2023 both occur. Do not parse it as a date."
+      },
+      "park_it": {
+        "from": "parkIt",
+        "type": "boolean",
+        "description": "True when NHTSA advises owners to stop driving the vehicle."
+      },
+      "park_outside": {
+        "from": "parkOutSide",
+        "type": "boolean",
+        "description": "True when NHTSA advises owners to park the vehicle outside, away from buildings (fire risk)."
+      },
+      "over_the_air_update": {
+        "from": "overTheAirUpdate",
+        "type": "boolean",
+        "description": "True when the fix can be installed as a software update over the air."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "make": "toyota",
+      "model": "camry",
+      "model_year": 2020
+    },
+    "expectedUrl": "https://api.nhtsa.gov/recalls/recallsByVehicle?make=toyota&model=camry&modelYear=2020",
+    "status": 200,
+    "body": {
+      "Count": 3,
+      "Message": "Results returned successfully",
+      "results": [
+        {
+          "Manufacturer": "Toyota Motor Engineering & Manufacturing",
+          "NHTSACampaignNumber": "20V682000",
+          "parkIt": false,
+          "parkOutSide": false,
+          "overTheAirUpdate": false,
+          "ReportReceivedDate": "04/11/2020",
+          "Component": "FUEL SYSTEM, GASOLINE:DELIVERY:FUEL PUMP",
+          "Summary": "Toyota Motor Engineering & Manufacturing (Toyota) is recalling certain 2018-2019 4Runner, 2019-2020 Avalon, 2019 Corolla Hatchback, 2017-2019 Highlander, 2018-2020 Camry, 2020 Corolla, 2018-2019 Land Cruiser, 2017-2020 Tacoma, 2019-2020 RAV4, 2019-2020 Sequoia, 2017-2020 Sienna, 2019-2020 Tundra, 2018-2020 Lexus ES350, 2017 Lexus GS200t, 2017-2019 Lexus GS350, 2019 Lexus GS300, 2018-2020 Lexus LC500h, 2019-2020 Lexus LS500, 2018-2019 Lexus GX460, 2017 Lexus IS200t, 2019 Lexus IS300, 2019 Lexus IS350, 2018-2020 Lexus LC500, 2018 Lexus LS500, 2019 Lexus LS500h, 2018-2019 Lexus LX570, 2017 Lexus RC200t, 2019 Lexus RC300, RC350, 2017 and 2019-2020 Lexus RX350, 2018-2020 RX350L, 2019 Lexus UX200, 2018-2019 Lexus NX300 vehicles.  The low-pressure fuel pump inside the fuel tank may fail.",
+          "Consequence": "If the fuel pump fails, the engine can stall while driving, increasing the risk of a crash.",
+          "Remedy": "Toyota will notify owners, and dealers will replace the fuel pump assembly with an improved one, free of charge.  Owners of specific models were notified that remedy parts were available starting January 21, 2021.  Owners of other models will be notified as remedy parts become available.  Remedy parts should be available for all affected vehicles by late March 2021.  Owners may contact Toyota customer service at 1-888-270-9371 or Lexus customer service at 1-800-255-3987.  Note: This recall is an expansion of recall 20V-012.  Toyota's number for this recall is 20TA02.  Lexus' number for this recall is 20LA01.",
+          "Notes": "Owners may also contact the National Highway Traffic Safety Administration Vehicle Safety Hotline at 1-888-327-4236 (TTY 1-800-424-9153), or go to www.safercar.gov.",
+          "ModelYear": "2020",
+          "Make": "TOYOTA",
+          "Model": "CAMRY"
+        },
+        {
+          "Manufacturer": "Toyota Motor Engineering & Manufacturing",
+          "NHTSACampaignNumber": "20V064000",
+          "parkIt": false,
+          "parkOutSide": false,
+          "overTheAirUpdate": false,
+          "ReportReceivedDate": "06/02/2020",
+          "Component": "ENGINE AND ENGINE COOLING",
+          "Summary": "Toyota Motor Engineering & Manufacturing (Toyota) is recalling certain 2020 Toyota Avalon Hybrid, Camry, Camry Hybrid and  Lexus ES300h and 2019-2020 RAV4 and RAV4 Hybrid vehicles equipped with 2.5L 4-Cylinder engines.  Porosity in the engine castings may result in cracks than can allow coolant to leak internally and/or externally.",
+          "Consequence": "A coolant leak can cause the engine to overheat and cause a vehicle stall in conventional gasoline vehicles, increasing the risk of a crash. Additionally, for all involved vehicles, the engine may get damaged mechanically, possibly resulting in an engine oil leak, increasing the risk of a fire.",
+          "Remedy": "Toyota will notify owners, and dealers will inspect and replace the engine including the engine block, as necessary, free of charge.  The recall began April 3, 2020.  Owners may contact Toyota customer service at 1-888-270-9371 or Lexus at 1-800-255-3987.  Toyota's number for this recall is 20TA04.  Lexus' number for this recall is 20LA02.",
+          "Notes": "Owners may also contact the National Highway Traffic Safety Administration Vehicle Safety Hotline at 1-888-327-4236 (TTY 1-800-424-9153), or go to www.safercar.gov.",
+          "ModelYear": "2020",
+          "Make": "TOYOTA",
+          "Model": "CAMRY"
+        }
+      ]
+    }
+  }
+}
