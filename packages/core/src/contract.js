@@ -18,7 +18,7 @@ const TOP_KEYS = ["$schema", "source", "tool", "params", "request", "response", 
 const TOP_REQUIRED = ["source", "tool", "params", "request", "response", "fixture"];
 const PARAM_TYPES = ["string", "integer", "number", "boolean", "date"];
 const FIELD_TYPES = ["string", "number", "boolean"];
-const TRANSFORM_NAMES = ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso"];
+const TRANSFORM_NAMES = ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso", "isoDate"];
 const PARAM_KEYS = [
   "type", "description", "example", "required", "default", "enum", "minimum", "maximum",
   "minLength", "maxLength", "format", "escape",
@@ -210,11 +210,14 @@ function checkRequest(request, add) {
 function checkResponse(response, add) {
   if (!isObject(response)) return add("$.response", "must be an object");
   for (const key of Object.keys(response)) {
-    if (!["recordsPath", "noMatch", "fields"].includes(key)) add(`$.response.${key}`, "unknown key");
+    if (!["recordsPath", "maxRecords", "noMatch", "fields"].includes(key)) add(`$.response.${key}`, "unknown key");
   }
   if (!has(response, "recordsPath")) add("$.response.recordsPath", "is required");
   else if (typeof response.recordsPath !== "string" || response.recordsPath === "") {
     add("$.response.recordsPath", "must be a non-empty string");
+  }
+  if (has(response, "maxRecords") && !(isInt(response.maxRecords) && response.maxRecords >= 1 && response.maxRecords <= 500)) {
+    add("$.response.maxRecords", "must be an integer from 1 to 500");
   }
   if (has(response, "noMatch")) {
     const nm = response.noMatch;

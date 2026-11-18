@@ -1,0 +1,5 @@
+name = "recall-radar"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# No bindings, no variables and no secrets: the server is read-only and public.

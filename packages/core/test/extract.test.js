@@ -50,6 +50,34 @@ describe("extractRecords", () => {
     expect(extractRecords(c, body).records).toEqual([{ id: "b" }]);
   });
 
+  describe("5.8 maxRecords", () => {
+    const withMax = (max) => {
+      const c = minimalContract();
+      c.response = { recordsPath: "$", ...(max === undefined ? {} : { maxRecords: max }), fields: { id: f("number", { from: "id", required: true }) } };
+      return loadContract(c);
+    };
+    const rows = (n) => Array.from({ length: n }, (_, i) => ({ id: i }));
+
+    it("keeps the first N in upstream order", () => {
+      expect(extractRecords(withMax(3), rows(10)).records).toEqual([{ id: 0 }, { id: 1 }, { id: 2 }]);
+    });
+    it("keeps everything when N is larger than the array or equal to it", () => {
+      expect(extractRecords(withMax(50), rows(4)).records).toHaveLength(4);
+      expect(extractRecords(withMax(4), rows(4)).records).toHaveLength(4);
+    });
+    it("keeps everything when maxRecords is absent", () => {
+      expect(extractRecords(withMax(undefined), rows(600)).records).toHaveLength(600);
+    });
+    it("an empty array stays empty", () => {
+      expect(extractRecords(withMax(5), [])).toEqual({ ok: true, records: [] });
+    });
+    it("the required-field rule looks only at the kept records", () => {
+      const body = [{ id: null }, { id: null }, { id: 3 }];
+      expect(extractRecords(withMax(2), body).ok).toBe(false);
+      expect(extractRecords(withMax(3), body).ok).toBe(true);
+    });
+  });
+
   it("5.2 gives ok:false when the records path is missing, null, an object or a string", () => {
     for (const body of [{}, { results: null }, { results: {} }, { results: "x" }, null, "text", 3, [], { other: [] }]) {
       const r = extractRecords(food, body);

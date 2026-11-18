@@ -146,7 +146,8 @@ describe("bin/skeleton-mcp.js (end to end over a real pipe)", () => {
     const input = [
       msg(1, "initialize", {}),
       msg(2, "tools/list"),
-      msg(3, "tools/call", { name: "recalls_search_food", arguments: {} }),
+      // product is optional since the recall-radar change, so an undeclared key is the invalid call
+      msg(3, "tools/call", { name: "recalls_search_food", arguments: { bogus: 1 } }),
     ].join("\n") + "\n";
     const { code, stdout, stderr } = await runBin([], input);
     expect(code).toBe(0);

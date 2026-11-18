@@ -1,0 +1,15 @@
+{
+  "name": "@skeleton-key/recall-radar",
+  "version": "0.1.0",
+  "description": "MCP server that answers \"is this product recalled?\" from openFDA (food, drugs) and the CPSC.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "bin": { "recall-radar": "bin/recall-radar.js" },
+  "scripts": {
+    "start": "node bin/recall-radar.js",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy"
+  }
+}

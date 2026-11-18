@@ -51,6 +51,7 @@
       "required": ["recordsPath", "fields"],
       "properties": {
         "recordsPath": { "type": "string", "minLength": 1 },
+        "maxRecords": { "type": "integer", "minimum": 1, "maximum": 500 },
         "noMatch": {
           "type": "object",
           "additionalProperties": false,
@@ -113,7 +114,7 @@
         "template": { "type": "string", "minLength": 1 },
         "transform": {
           "type": "array",
-          "items": { "enum": ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso"] }
+          "items": { "enum": ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso", "isoDate"] }
         },
         "type": { "enum": ["string", "number", "boolean"] },
         "required": { "type": "boolean", "default": false },

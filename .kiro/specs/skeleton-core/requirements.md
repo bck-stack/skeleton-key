@@ -12,6 +12,7 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 1.5 When a `{placeholder}` in `request.query` names a parameter that is not declared, the system shall throw a `ContractError`.
 1.5a When entries in `request.query` share a `key`, and any of them lacks `joinWith` or they declare different `joinWith` values, or a `query` template contains a `{` or `}` outside a `{placeholder}`, the system shall throw a `ContractError`.
 1.6 The system shall accept a contract with defaults applied (`timeoutMs` 8000, `cacheSeconds` 60, `required` false).
+1.7 Where `response.maxRecords` is present and is not an integer from 1 to 500, the system shall throw a `ContractError` naming `$.response.maxRecords`. (Amendment, approved 2026-11-18 for the recall-radar app.)
 
 ## 2. Validate input
 **User story:** As an agent, I want a precise error for a bad argument, so that I can correct it without a network round trip.
@@ -51,9 +52,11 @@ Scope: `packages/core` and `packages/adapters`. The apps `recall-radar` and `qua
 5.2 If `recordsPath` does not resolve to an array, then the system shall return `UPSTREAM_SHAPE_CHANGED` with `retryable: false` and no records.
 5.3 Each record shall contain exactly the keys of `response.fields`, each a value of the declared `type` or `null`.
 5.4 When a field value is missing, a transform cannot parse it, or the final type differs from `type`, the system shall set it to `null`.
-5.5 Where the transforms `trim`, `upper`, `lower`, `toNumber`, `epochMsToIso` and `yyyymmddToIso` apply, they shall return a value of their output type or `null`, and shall never throw, for any input of their declared input type.
+5.5 Where the transforms `trim`, `upper`, `lower`, `toNumber`, `epochMsToIso`, `yyyymmddToIso` and `isoDate` apply, they shall return a value of their output type or `null`, and shall never throw, for any input of their declared input type.
 5.6 If the array is non-empty and a `required` field is `null` in every record, then the system shall return `UPSTREAM_SHAPE_CHANGED` with `retryable: false` and no records.
 5.7 When a `required` field is `null` in some records but not all, the system shall keep those records with `null` in that field.
+5.8 Where `response.maxRecords` is present and the records array is longer, the system shall keep only the first `maxRecords` elements, in upstream order, before mapping. The required-field rule (5.6) and `count` apply to the kept records. When the array is not longer, or `maxRecords` is absent, nothing is dropped. (Amendment, approved 2026-11-18.)
+5.9 The transform `isoDate` takes a string that starts with a real `YYYY-MM-DD` calendar date, followed by nothing or by a non-digit character (for example `2026-07-23T00:00:00`), and returns those first ten characters. Any other value gives `null`. (Amendment, approved 2026-11-18.)
 
 ## 6. Envelope
 **User story:** As an agent, I want one answer shape.

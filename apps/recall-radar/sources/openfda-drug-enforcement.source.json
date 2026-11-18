@@ -1,0 +1,200 @@
+{
+  "$schema": "../../../packages/core/schema/source.schema.json",
+  "source": "openfda-drug-enforcement",
+  "tool": {
+    "name": "recalls_search_drug",
+    "description": "Returns FDA drug recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a drug or medicine has been recalled in the US. With no filters it returns the newest recalls. An empty list means no matching records. Do not use for food (use recalls_search_food) or consumer products (use recalls_search_consumer). Data is unvalidated and not medical advice."
+  },
+  "params": {
+    "product": {
+      "type": "string",
+      "maxLength": 100,
+      "escape": "lucene",
+      "description": "Words from the product description, for example a drug name or brand. Optional.",
+      "example": "aspirin"
+    },
+    "firm": {
+      "type": "string",
+      "maxLength": 100,
+      "escape": "lucene",
+      "description": "Name of the recalling company, for example a manufacturer. Optional.",
+      "example": "Pfizer"
+    },
+    "date_from": {
+      "type": "date",
+      "format": "yyyymmdd",
+      "description": "Earliest report date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2024-01-01"
+    },
+    "date_to": {
+      "type": "date",
+      "format": "yyyymmdd",
+      "description": "Latest report date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2024-12-31"
+    },
+    "limit": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 50,
+      "description": "Maximum number of records to return, 1 to 50.",
+      "example": 10
+    }
+  },
+  "request": {
+    "baseUrl": "https://api.fda.gov/drug/enforcement.json",
+    "query": [
+      {
+        "key": "search",
+        "template": "product_description:\"{product}\"",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
+        "template": "recalling_firm:\"{firm}\"",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
+        "template": "report_date:[{date_from} TO 29991231]",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
+        "template": "report_date:[19000101 TO {date_to}]",
+        "joinWith": " AND "
+      },
+      {
+        "key": "sort",
+        "template": "report_date:desc"
+      },
+      {
+        "key": "limit",
+        "template": "{limit}"
+      }
+    ],
+    "timeoutMs": 8000,
+    "cacheSeconds": 60
+  },
+  "response": {
+    "recordsPath": "results",
+    "noMatch": {
+      "status": [
+        404
+      ]
+    },
+    "fields": {
+      "recall_number": {
+        "from": "recall_number",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "FDA recall number."
+      },
+      "product": {
+        "from": "product_description",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "Recalled product."
+      },
+      "reason": {
+        "from": "reason_for_recall",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Why it was recalled."
+      },
+      "classification": {
+        "from": "classification",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Class I, II or III."
+      },
+      "status": {
+        "from": "status",
+        "transform": [
+          "trim",
+          "lower"
+        ],
+        "type": "string",
+        "description": "Ongoing, completed or terminated."
+      },
+      "date": {
+        "from": "report_date",
+        "transform": [
+          "yyyymmddToIso"
+        ],
+        "type": "string",
+        "description": "Report date, ISO date."
+      },
+      "firm": {
+        "from": "recalling_firm",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "Recalling company."
+      },
+      "link": {
+        "template": "https://api.fda.gov/drug/enforcement.json?search=recall_number:\"{recall_number}\"",
+        "type": "string",
+        "description": "Machine-readable record URL."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "product": "aspirin",
+      "limit": 3
+    },
+    "expectedUrl": "https://api.fda.gov/drug/enforcement.json?search=product_description%3A%22aspirin%22&sort=report_date%3Adesc&limit=3",
+    "status": 200,
+    "body": {
+      "meta": {
+        "last_updated": "2026-11-11",
+        "results": {
+          "skip": 0,
+          "limit": 3,
+          "total": 59
+        }
+      },
+      "results": [
+        {
+          "recall_number": "D-0058-2025",
+          "product_description": "Aspirin Chewable tablet 81 mg, 1 tablet in blister card-foils, 100-count unit dose box, www.safecorhealth.com, NDC 48433-129-01",
+          "reason_for_recall": "cGMP Deviations: Observations were made that some blister card-foils were separating from the blister cavity.",
+          "classification": "Class II",
+          "status": "Ongoing",
+          "report_date": "20241127",
+          "recalling_firm": "Safecor Health, LLC"
+        },
+        {
+          "recall_number": "D-0641-2024",
+          "product_description": "Healthy Living Acetaminophen, Aspirin (NSAID) and Caffeine, tablets USP, 250 mg/250 mg/65 mg, 100-count bottles, Distributed by: Aurohealth LLC, 279 Princeton-Hightstown Road, East Windsor, NJ , Made in India, NDC 58602-882-21.",
+          "reason_for_recall": "Labeling: Missing Label - some bottles are missing the the manufacturers label that includes the drug facts information.",
+          "classification": "Class I",
+          "status": "Ongoing",
+          "report_date": "20240828",
+          "recalling_firm": "Aurobindo Pharma USA Inc"
+        },
+        {
+          "recall_number": "D-0170-2024",
+          "product_description": "Low Dose ASPIRIN, 81 mg, 120 Enteric Coated Tablets, Distributed by: Rugby Lavoratories, 17177 N Laurel Park Drive, Suite 233, Livonia, MI 48152. NDC: 0536-1234-41",
+          "reason_for_recall": "CGMP Deviations: Products were exposed to temperatures outside of the products labeled storage conditions.",
+          "classification": "Class II",
+          "status": "Terminated",
+          "report_date": "20240103",
+          "recalling_firm": "CARDINAL HEALTHCARE"
+        }
+      ]
+    }
+  }
+}

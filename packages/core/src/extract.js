@@ -58,7 +58,9 @@ export function extractRecords(contract, body) {
     return { ok: false, reason: `'${recordsPath}' is missing or is not an array` };
   }
   const entries = Object.entries(fields);
-  const records = list.map((element) => {
+  const max = contract.response.maxRecords;
+  const kept = Number.isInteger(max) && max >= 1 && list.length > max ? list.slice(0, max) : list;
+  const records = kept.map((element) => {
     const record = {};
     for (const [name, spec] of entries) record[name] = mapField(spec, element);
     return record;

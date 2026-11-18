@@ -1,0 +1,191 @@
+{
+  "$schema": "../../../packages/core/schema/source.schema.json",
+  "source": "cpsc-recalls",
+  "tool": {
+    "name": "recalls_search_consumer",
+    "description": "Returns US Consumer Product Safety Commission recalls of consumer products such as toys, strollers and appliances (recall number, title, product, hazard, date, firm, link), at most 25 records, newest first. Use when asked whether a consumer product has been recalled. Always give product, firm or date_from; without a filter the upstream sends its whole history. An empty list means no matching records. Do not use for food (use recalls_search_food) or drugs (use recalls_search_drug)."
+  },
+  "params": {
+    "product": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Words from the product name, for example a toy or appliance type. Optional.",
+      "example": "stroller"
+    },
+    "firm": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Name of the manufacturer, for example a brand owner. Optional.",
+      "example": "Graco"
+    },
+    "date_from": {
+      "type": "date",
+      "description": "Earliest recall date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2025-01-01"
+    },
+    "date_to": {
+      "type": "date",
+      "description": "Latest recall date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2025-12-31"
+    }
+  },
+  "request": {
+    "baseUrl": "https://www.saferproducts.gov/RestWebServices/Recall",
+    "staticQuery": {
+      "format": "json"
+    },
+    "query": [
+      {
+        "key": "ProductName",
+        "template": "{product}"
+      },
+      {
+        "key": "Manufacturer",
+        "template": "{firm}"
+      },
+      {
+        "key": "RecallDateStart",
+        "template": "{date_from}"
+      },
+      {
+        "key": "RecallDateEnd",
+        "template": "{date_to}"
+      }
+    ],
+    "timeoutMs": 8000,
+    "cacheSeconds": 60
+  },
+  "response": {
+    "recordsPath": "$",
+    "maxRecords": 25,
+    "fields": {
+      "recall_number": {
+        "from": "RecallNumber",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "CPSC recall number."
+      },
+      "title": {
+        "from": "Title",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "required": true,
+        "description": "Recall title."
+      },
+      "product": {
+        "from": "Products.0.Name",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "First recalled product."
+      },
+      "hazard": {
+        "from": "Hazards.0.Name",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "First hazard described by the CPSC."
+      },
+      "date": {
+        "from": "RecallDate",
+        "transform": [
+          "isoDate"
+        ],
+        "type": "string",
+        "description": "Recall date, ISO date."
+      },
+      "firm": {
+        "from": "Manufacturers.0.Name",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "First manufacturer, as the CPSC prints it."
+      },
+      "link": {
+        "from": "URL",
+        "transform": [
+          "trim"
+        ],
+        "type": "string",
+        "description": "CPSC recall page."
+      }
+    }
+  },
+  "fixture": {
+    "input": {
+      "product": "stroller",
+      "date_from": "2025-01-01"
+    },
+    "expectedUrl": "https://www.saferproducts.gov/RestWebServices/Recall?format=json&ProductName=stroller&RecallDateStart=2025-01-01",
+    "status": 200,
+    "body": [
+      {
+        "RecallNumber": "26639",
+        "RecallDate": "2026-07-23T00:00:00",
+        "URL": "https://www.cpsc.gov/Recalls/2026/Peony-Design-Recalls-Personalized-Baby-Bibs-and-Stroller-Bags-Due-to-Risk-of-Serious-Injury-or-Death-from-Choking-Hazard",
+        "Title": "Peony Design Recalls Personalized Baby Bibs and Stroller Bags Due to Risk of Serious Injury or Death from Choking Hazard",
+        "Products": [
+          {
+            "Name": "Personalized Baby Bibs and Stroller Bags"
+          }
+        ],
+        "Hazards": [
+          {
+            "Name": "The snap can detach from the recalled bibs and stroller bags, posing a risk of serious injury or death from a choking hazard to young children."
+          }
+        ],
+        "Manufacturers": [
+          {
+            "Name": "Peony Design Co., of Howell, MI"
+          }
+        ]
+      },
+      {
+        "RecallNumber": "26561",
+        "RecallDate": "2026-06-18T00:00:00",
+        "URL": "https://www.cpsc.gov/Recalls/2026/BABESIDE-Doll-and-Stroller-Childrens-Toys-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Choking-Hazard-Violate-Small-Parts-Ban-Sold-on-Amazon-by-HYBDOLLS",
+        "Title": "BABESIDE Doll and Stroller Children's Toys Recalled Due to Risk of Serious Injury or Death from Choking Hazard; Violate Small Parts Ban; Sold on Amazon by HYBDOLLS",
+        "Products": [
+          {
+            "Name": "BABESIDE Doll and Stroller Toys"
+          }
+        ],
+        "Hazards": [
+          {
+            "Name": "The recalled toys violate the small parts ban because they are intended for children under three and the small pacifier poses a deadly choking hazard to young children. In addition, the eyes on the plush bear can detach, also posing a choking hazard."
+          }
+        ],
+        "Manufacturers": [
+          {
+            "Name": "Huizhou Huitong Crafts Co. Ltd., of China"
+          }
+        ]
+      },
+      {
+        "RecallNumber": "26568",
+        "RecallDate": "2026-06-18T00:00:00",
+        "URL": "https://www.cpsc.gov/Recalls/2026/Joolz-Recalls-Aer2-Car-Seat-Adapters-for-Strollers-Due-to-Risk-of-Serious-Injury-from-Fall-Hazard",
+        "Title": "Joolz Recalls Aer2 Car Seat Adapters for Strollers Due to Risk of Serious Injury from Fall Hazard",
+        "Products": [
+          {
+            "Name": "Joolz Aer2 Car Seat Adapters for Joolz Aer 2 Stroller"
+          }
+        ],
+        "Hazards": [
+          {
+            "Name": "The recalled car seat adapters can fail to properly attach to the stroller, which may allow the car seat to fall, posing a risk of serious injury from a fall hazard."
+          }
+        ],
+        "Manufacturers": []
+      }
+    ]
+  }
+}

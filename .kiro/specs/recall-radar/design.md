@@ -19,7 +19,8 @@ The app contains wiring only. All behavior lives in the contracts and in `packag
 | `apps/recall-radar/src/contracts.js` | `CONTRACT_FILES`: the three paths, in tool order. `loadAppContracts(readJson)` validates them with `loadContracts`. Uses no Node built-ins. |
 | `apps/recall-radar/src/server-info.js` | `{ name: "recall-radar", version }` |
 | `apps/recall-radar/worker/index.js` | Worker entry. Imports the three JSON files statically (Wrangler bundles JSON), calls `loadContracts`, routes `/mcp`. |
-| `apps/recall-radar/bin/recall-radar.js` | stdio entry. Reads the three files with `fs`, calls `serveStdio`. |
+| `apps/recall-radar/bin/recall-radar.js` | stdio entry, three lines: calls `main()` from `bin/main.js`. |
+| `apps/recall-radar/bin/main.js` | stdio logic with injectable streams and `readJson`, so tests can feed it. Reads the three files with `fs`, calls `serveStdio`, returns the exit code. It sits in `bin/`, not `src/`, because `src/` and `worker/` must import no Node built-ins. |
 | `apps/recall-radar/wrangler.toml` | `name`, `main = "worker/index.js"`, `compatibility_date`. No bindings. |
 | `apps/recall-radar/test/*.test.js` | tests (section 6) |
 | `apps/recall-radar/README.md` | setup and examples |
@@ -115,6 +116,6 @@ Security: the server is read-only, public, and unauthenticated by design. User t
 - **RR-P9 Worker totality.** For any method and path, `worker.fetch` returns a `Response` and never rejects; only `POST /mcp` reaches the MCP handler. _Validates 6.1, 6.4_
 
 ## 8. Open risks
-- CPSC sort order and the `Manufacturer` parameter name are not verified. Task 3 checks them with real calls. If the list is oldest first, requirement 8.3 applies. If `Manufacturer` is wrong, `firm` for CPSC is dropped from the tool and the requirements are updated first.
-- CPSC with no filter returns the whole history. Without `maxRecords` the answer would be huge, so task 3 depends on the amendment.
+- Resolved in task 3: CPSC is newest first and `Manufacturer` works (requirements section 1), so neither `response.order` nor dropping `firm` is needed.
+- OPEN: CPSC with no filter, or with a very old `date_from`, makes the upstream send the whole history (27.8 MB on 2026-11-18). `maxRecords` caps the answer, not the download. The 8-second timeout turns a slow download into `UPSTREAM_UNAVAILABLE`, but on a Worker the JSON parse may also exceed the CPU limit. The contract format cannot say "at least one filter", so the tool description tells the agent to always give `product`, `firm` or `date_from`. If the manual Worker check (task 9) shows a failure, the fix is a spec change (for example `date_from` required for this tool), not a code workaround.
 - The Worker runtime is not available in the unit tests (they use Node `Request`/`Response`). The deploy check is manual (task 9) and is reported as such.

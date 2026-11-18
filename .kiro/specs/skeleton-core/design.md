@@ -26,7 +26,7 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
 | `packages/core/src/path.js` | dot-path get with array indexes; `$` is root | `getPath(value, path)` |
 | `packages/core/src/validate.js` | input validation, defaults, optional coercion (req 2) | `validateInput(contract, input, {coerce})` → `{ok, value}` or `{ok:false, param, message}` |
 | `packages/core/src/request.js` | URL building (req 3) | `buildUrl(contract, value)` → string |
-| `packages/core/src/transforms.js` | six total transforms (req 5.5) | `TRANSFORMS`, `applyTransforms(value, names)` |
+| `packages/core/src/transforms.js` | seven total transforms (req 5.5, 5.9) | `TRANSFORMS`, `applyTransforms(value, names)` |
 | `packages/core/src/extract.js` | records path, field map, required rules (req 5) | `extractRecords(contract, body)` → `{ok, records}` or `{ok:false}` |
 | `packages/core/src/envelope.js` | envelope constructors and types (req 6) | `success()`, `failure(source, code, message)` |
 | `packages/core/src/cache.js` | TTL map keyed by source id and URL, injectable clock, at most 500 entries (req 4.6) | `createCache({now, maxEntries})` → `{get, set, clear, size}` |
@@ -53,6 +53,7 @@ sources/*.source.json ──► loadContracts() ──► Contract[]  (validated
    - 2xx: parse JSON; parse failure → `UPSTREAM_SHAPE_CHANGED`.
 5. `extractRecords(contract, body)`:
    - `getPath(body, recordsPath)` is not an array → shape error.
+   - if `response.maxRecords` is set, keep only the first `maxRecords` elements (amendment, req 5.8).
    - map each element through `fields` (`from` or `template`, then `transform`, then type check, else `null`).
    - array non-empty and some `required` field is `null` in all records → shape error.
 6. Build success envelope; cache it; return.
@@ -109,6 +110,7 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
       "type": "object", "additionalProperties": false, "required": ["recordsPath", "fields"],
       "properties": {
         "recordsPath": { "type": "string", "minLength": 1 },
+        "maxRecords": { "type": "integer", "minimum": 1, "maximum": 500 },
         "noMatch": {
           "type": "object", "additionalProperties": false, "required": ["status"],
           "properties": { "status": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 400, "maximum": 499 } } }
@@ -152,7 +154,7 @@ Stored at `packages/core/schema/source.schema.json`. Cross-field rules (placehol
       "properties": {
         "from": { "type": "string", "minLength": 1 },
         "template": { "type": "string", "minLength": 1 },
-        "transform": { "type": "array", "items": { "enum": ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso"] } },
+        "transform": { "type": "array", "items": { "enum": ["trim", "upper", "lower", "toNumber", "epochMsToIso", "yyyymmddToIso", "isoDate"] } },
         "type": { "enum": ["string", "number", "boolean"] },
         "required": { "type": "boolean", "default": false },
         "description": { "type": "string", "minLength": 1 }
@@ -187,6 +189,7 @@ Transforms (input → output; every unparseable input → `null`):
 | `toNumber` | string \| number | number | trimmed string matching a finite decimal literal; non-finite → null |
 | `epochMsToIso` | number | string | finite integer within ±8.64e15 → `toISOString()` |
 | `yyyymmddToIso` | string | string | 8 digits forming a real calendar date → `YYYY-MM-DD` |
+| `isoDate` | string | string | starts with a real `YYYY-MM-DD` date, followed by nothing or a non-digit → those 10 characters (amendment, req 5.9) |
 
 A transform given a value of the wrong type returns `null`. `applyTransforms` stops at the first `null`.
 
@@ -255,6 +258,7 @@ Properties are never weakened to pass. If one fails, fix the code, or change the
 ## 10. Decisions and open points
 - No pagination: `limit` is a normal parameter. Paging can be added later as a contract feature; it is out of scope now.
 - `yyyymmddToIso` is an addition to the brief's transform list; openFDA dates need it.
+- Amendment (2026-11-18, approved by the user for recall-radar): `response.maxRecords` (CPSC has no limit parameter) and the `isoDate` transform (CPSC dates are `2026-07-23T00:00:00`). `maxRecords` is applied before mapping so that `count`, the required-field rule and the cache all see the kept records. `response.order` is not added: it is only needed if CPSC proves not newest-first (recall-radar task 3).
 - 429 maps to `UPSTREAM_UNAVAILABLE` and unexpected 4xx to `UPSTREAM_SHAPE_CHANGED`; the brief does not say. Recorded in `answer-rules.md`.
 - `ajv` is a dev dependency used only in tests, to keep the schema file and `contract.js` in agreement.
 - Hooks and the "add a source" spec template are separate deliverables, not part of this spec.

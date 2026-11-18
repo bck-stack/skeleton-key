@@ -3,22 +3,34 @@
   "source": "openfda-food-enforcement",
   "tool": {
     "name": "recalls_search_food",
-    "description": "Returns FDA food recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a food product or firm has been recalled in the US. An empty list means no matching records. Do not use for drugs (use recalls_search_drug) or non-food consumer products (use recalls_search_consumer)."
+    "description": "Returns FDA food recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a food product or firm has been recalled in the US. With no filters it returns the newest recalls. An empty list means no matching records. Do not use for drugs (use recalls_search_drug) or non-food consumer products (use recalls_search_consumer)."
   },
   "params": {
     "product": {
       "type": "string",
-      "required": true,
       "maxLength": 100,
       "escape": "lucene",
-      "description": "Words from the product description, for example a brand or food name.",
+      "description": "Words from the product description, for example a brand or food name. Optional.",
       "example": "peanut butter"
+    },
+    "firm": {
+      "type": "string",
+      "maxLength": 100,
+      "escape": "lucene",
+      "description": "Name of the recalling company, for example a brand owner. Optional.",
+      "example": "Acme Foods"
     },
     "date_from": {
       "type": "date",
       "format": "yyyymmdd",
-      "description": "Earliest report date, YYYY-MM-DD, inclusive.",
+      "description": "Earliest report date, YYYY-MM-DD, inclusive. Optional.",
       "example": "2024-01-01"
+    },
+    "date_to": {
+      "type": "date",
+      "format": "yyyymmdd",
+      "description": "Latest report date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2024-12-31"
     },
     "limit": {
       "type": "integer",
@@ -39,7 +51,17 @@
       },
       {
         "key": "search",
+        "template": "recalling_firm:\"{firm}\"",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
         "template": "report_date:[{date_from} TO 29991231]",
+        "joinWith": " AND "
+      },
+      {
+        "key": "search",
+        "template": "report_date:[19000101 TO {date_to}]",
         "joinWith": " AND "
       },
       {

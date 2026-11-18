@@ -11,13 +11,18 @@ Each source follows the add-source template (`.kiro/specs/_templates/add-source/
 | Base URL | `https://api.fda.gov/food/enforcement.json` | `https://api.fda.gov/drug/enforcement.json` | `https://www.saferproducts.gov/RestWebServices/Recall` |
 | Key needed | no | no | no |
 | Records at | `results` | `results` | `$` (body is a bare array) |
-| No matches | HTTP 404 `{"error":{"code":"NOT_FOUND",...}}` | same as food (documented by openFDA, to be re-checked in task 2) | HTTP 200 `[]` (checked: product name `zzzqqxx`) |
+| No matches | HTTP 404 `{"error":{"code":"NOT_FOUND",...}}` | same as food. Checked 2026-11-18: `product_description:"zzzqqxxnotadrug"` gave HTTP 404 `{"error":{"code":"NOT_FOUND","message":"No matches found!"}}`. A match for `aspirin` gave 200 (`meta.results.total` 59). No filter at all and `recalling_firm:"Pfizer"` with a date range also gave 200. | HTTP 200 `[]` (checked: product name `zzzqqxx`) |
 | Query language | Lucene `search=field:"phrase"` | same | plain parameters (`ProductName`, `RecallDateStart`, ...) |
 | Date in request | `YYYYMMDD` | `YYYYMMDD` | `YYYY-MM-DD` |
 | Date in response | `"20260923"` | `"20260923"` | `"2026-07-23T00:00:00"` |
 | Limit parameter | `limit`, up to 1000 | `limit`, up to 1000 | none known (checked: 6 records returned for `ProductName=stroller` since 2025-01-01) |
-| Sort | `sort=report_date:desc` | same | not documented, to be checked in task 3 |
+| Sort | `sort=report_date:desc` | same | not documented. Checked 2026-11-18 on five real queries (6, 26, 68, 521 and 2897 records): `RecallDate` is newest first in all of them. |
 | Hazard / reason | `reason_for_recall` | `reason_for_recall` | `Hazards[0].Name` |
+| CPSC `Manufacturer` | n/a | n/a | Works (checked: `Manufacturer=Graco` gave 26 records, all with a Graco manufacturer). Matches inside `Manufacturers[].Name`. |
+| CPSC `RecallDateEnd` | n/a | n/a | Works and is inclusive (checked: start = end = 2025-02-27 gave records dated 2025-02-27). A reversed range gives HTTP 200 `[]`. |
+| CPSC malformed date | n/a | n/a | `RecallDateStart=notadate` gives HTTP 200 and a one-element array holding an error record (`RecallID` 0, `RecallNumber` null, `Title` "Error retrieving Recalls: ..."). Because `recall_number` is `required` and null in every record, the runtime already turns this into `UPSTREAM_SHAPE_CHANGED`. Input validation rejects non-dates before any call anyway. |
+| CPSC without `format=json` | n/a | n/a | Answers XML. The contract always sends `format=json`. |
+| CPSC with no filter | n/a | n/a | Returns the whole history: 27.8 MB, 2026-11-18. `maxRecords` limits what we return, not what we download. See the risk in `design.md` section 8. |
 
 ## 2. Tool `recalls_search_food` (source `openfda-food-enforcement`)
 **User story:** As a chat agent, I want to check whether a food product or firm has been recalled in the US, so that I can answer a shopper with a recall number and a link.
@@ -73,7 +78,7 @@ Each source follows the add-source template (`.kiro/specs/_templates/add-source/
 `.kiro/steering/source-contracts.md` says to stop and propose a spec change when the contract cannot express a behavior. Two behaviors in section 4 cannot be expressed today:
 8.1 **Record cap.** CPSC has no limit parameter. The contract needs `response.maxRecords` (integer 1 to 500, optional). When present, the system shall keep the first `maxRecords` records after extraction.
 8.2 **Date-only transform.** CPSC dates are `2026-07-23T00:00:00`. The runtime needs a transform `isoDate` that returns the leading `YYYY-MM-DD` of a string that starts with a real calendar date, else `null`.
-8.3 If the CPSC list is not newest first (task 3 checks), then a third addition is needed: `response.order: "reverse"`. Do not add it without that evidence.
+8.3 If the CPSC list is not newest first (task 3 checks), then a third addition is needed: `response.order: "reverse"`. Do not add it without that evidence. **Decision (task 3, 2026-11-18): not needed.** All five real queries were newest first. `response.order` is not added.
 Each addition changes `.kiro/specs/skeleton-core/` (requirements, design, tasks) and gets tests in `packages/core/test/`, including the property that transforms never throw.
 
 ## 9. Quality

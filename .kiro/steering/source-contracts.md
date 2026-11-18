@@ -40,12 +40,13 @@ Top level (all required, no other keys):
 
 `response`:
 - `recordsPath`: dot path to the array of records. `$` means the body itself is the array. A path segment may be an array index (`features.0`).
+- `maxRecords`: optional integer 1 to 500. Keeps only the first N records of the upstream order. Use it when the upstream has no limit parameter.
 - `noMatch`: optional `{ status: [int, ...] }`. HTTP statuses that mean "healthy, zero matches". Declare only what the upstream documents.
 - `fields`: object, output field name (snake_case) to a field spec.
 
 `response.fields.<name>`:
 - Exactly one of `from` (dot path inside one record) or `template` (a string with `{path}` placeholders resolved inside one record; null if any is missing).
-- `transform`: optional array, applied in order. Allowed: `trim`, `upper`, `lower`, `toNumber`, `epochMsToIso`, `yyyymmddToIso`. Each returns `null` for input it cannot parse.
+- `transform`: optional array, applied in order. Allowed: `trim`, `upper`, `lower`, `toNumber`, `epochMsToIso`, `yyyymmddToIso`, `isoDate` (leading `YYYY-MM-DD` of a date-time string). Each returns `null` for input it cannot parse.
 - `type`: `string` \| `number` \| `boolean`. A value of another type becomes `null`.
 - `required`: boolean, default `false`. Use it for the fields that identify the record.
 - `description`: required.
@@ -62,18 +63,28 @@ Top level (all required, no other keys):
   "source": "openfda-food-enforcement",
   "tool": {
     "name": "recalls_search_food",
-    "description": "Returns FDA food recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a food product or firm has been recalled in the US. An empty list means no matching records. Do not use for drugs (use recalls_search_drug) or non-food consumer products (use recalls_search_consumer)."
+    "description": "Returns FDA food recall enforcement reports (recall number, product, reason, classification, status, date, firm), at most 'limit' records, newest first. Use when asked whether a food product or firm has been recalled in the US. With no filters it returns the newest recalls. An empty list means no matching records. Do not use for drugs (use recalls_search_drug) or non-food consumer products (use recalls_search_consumer)."
   },
   "params": {
     "product": {
-      "type": "string", "required": true, "maxLength": 100, "escape": "lucene",
-      "description": "Words from the product description, for example a brand or food name.",
+      "type": "string", "maxLength": 100, "escape": "lucene",
+      "description": "Words from the product description, for example a brand or food name. Optional.",
       "example": "peanut butter"
+    },
+    "firm": {
+      "type": "string", "maxLength": 100, "escape": "lucene",
+      "description": "Name of the recalling company, for example a brand owner. Optional.",
+      "example": "Acme Foods"
     },
     "date_from": {
       "type": "date", "format": "yyyymmdd",
-      "description": "Earliest report date, YYYY-MM-DD, inclusive.",
+      "description": "Earliest report date, YYYY-MM-DD, inclusive. Optional.",
       "example": "2024-01-01"
+    },
+    "date_to": {
+      "type": "date", "format": "yyyymmdd",
+      "description": "Latest report date, YYYY-MM-DD, inclusive. Optional.",
+      "example": "2024-12-31"
     },
     "limit": {
       "type": "integer", "default": 10, "minimum": 1, "maximum": 50,
@@ -85,7 +96,9 @@ Top level (all required, no other keys):
     "baseUrl": "https://api.fda.gov/food/enforcement.json",
     "query": [
       { "key": "search", "template": "product_description:\"{product}\"", "joinWith": " AND " },
+      { "key": "search", "template": "recalling_firm:\"{firm}\"", "joinWith": " AND " },
       { "key": "search", "template": "report_date:[{date_from} TO 29991231]", "joinWith": " AND " },
+      { "key": "search", "template": "report_date:[19000101 TO {date_to}]", "joinWith": " AND " },
       { "key": "sort", "template": "report_date:desc" },
       { "key": "limit", "template": "{limit}" }
     ],

@@ -136,6 +136,25 @@ describe("source.schema.json (req 9.3)", () => {
     }
   });
 
+  it("accepts response.maxRecords from 1 to 500 and rejects 0, 501, 1.5 and a string", () => {
+    for (const ok of [1, 25, 500]) {
+      const c = minimal();
+      c.response.maxRecords = ok;
+      expect(validate(c), String(ok)).toBe(true);
+    }
+    for (const bad of [0, 501, 1.5, -1, "25", null]) {
+      const c = minimal();
+      c.response.maxRecords = bad;
+      expect(validate(c), String(bad)).toBe(false);
+    }
+  });
+
+  it("accepts the isoDate transform", () => {
+    const c = minimal();
+    c.response.fields.id.transform = ["trim", "isoDate"];
+    expect(validate(c), JSON.stringify(validate.errors)).toBe(true);
+  });
+
   it("rejects an empty fields map", () => {
     const c = minimal();
     c.response.fields = {};

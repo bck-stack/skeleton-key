@@ -74,12 +74,32 @@ const table = {
     [20240115, null],
     [null, null],
   ],
+  isoDate: [
+    ["2026-07-23T00:00:00", "2026-07-23"],
+    ["2026-07-23", "2026-07-23"],
+    ["2024-02-29T10:00:00Z", "2024-02-29"],
+    ["2024-02-29 10:00", "2024-02-29"],
+    ["2023-02-29T00:00:00", null],
+    ["1900-02-29", null],
+    ["2026-13-01T00:00:00", null],
+    ["2026-00-10", null],
+    ["2026-07-00", null],
+    ["2026-04-31", null],
+    ["0000-01-01", null],
+    ["2026-07-231", null],
+    ["2026-07-2", null],
+    [" 2026-07-23", null],
+    ["20260723", null],
+    ["", null],
+    [20260723, null],
+    [null, null],
+  ],
 };
 
 describe("transforms (table-driven)", () => {
-  it("exports exactly six transforms", () => {
+  it("exports exactly seven transforms", () => {
     expect(Object.keys(TRANSFORMS).sort()).toEqual(
-      ["epochMsToIso", "lower", "toNumber", "trim", "upper", "yyyymmddToIso"],
+      ["epochMsToIso", "isoDate", "lower", "toNumber", "trim", "upper", "yyyymmddToIso"],
     );
     expect(Object.keys(table).sort()).toEqual(Object.keys(TRANSFORMS).sort());
   });
@@ -198,6 +218,28 @@ describe("P4: transforms are total", () => {
       runs,
     );
     fc.assert(fc.property(nonString, (v) => TRANSFORMS.yyyymmddToIso(v) === null), runs);
+  });
+
+  it("isoDate: string -> YYYY-MM-DD prefix or null, other -> null", () => {
+    fc.assert(
+      fc.property(typeArbs.string, (s) => {
+        const r = TRANSFORMS.isoDate(s);
+        expect(r === null || (/^\d{4}-\d{2}-\d{2}$/.test(r) && s.startsWith(r))).toBe(true);
+      }),
+      runs,
+    );
+    fc.assert(fc.property(nonString, (v) => TRANSFORMS.isoDate(v) === null), runs);
+  });
+
+  it("isoDate accepts every real date followed by any time suffix", () => {
+    const suffix = fc.oneof(fc.constant(""), fc.stringMatching(/^[T ][0-9:.]{0,12}Z?$/));
+    fc.assert(
+      fc.property(fc.date({ min: new Date("0001-01-01T00:00:00Z"), max: new Date("9999-12-31T00:00:00Z"), noInvalidDate: true }), suffix, (d, tail) => {
+        const iso = d.toISOString().slice(0, 10);
+        expect(TRANSFORMS.isoDate(iso + tail)).toBe(iso);
+      }),
+      runs,
+    );
   });
 
   it("yyyymmddToIso accepts every real date from a generated Date", () => {

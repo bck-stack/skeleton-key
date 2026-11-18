@@ -61,6 +61,7 @@ describe("loadContract", () => {
       "$.request.cacheSeconds": (c) => (c.request.cacheSeconds = 7200),
       "$.request.query[0].key": (c) => (c.request.query[0].key = ""),
       "$.request.staticQuery.a": (c) => (c.request.staticQuery = { a: 1 }),
+      "$.response.maxRecords": (c) => (c.response.maxRecords = 0),
       "$.response.noMatch.status": (c) => (c.response.noMatch = { status: [200] }),
       "$.response.fields": (c) => (c.response.fields = {}),
       "$.response.fields.id": (c) => (c.response.fields.id.template = "{id}"),
@@ -77,6 +78,24 @@ describe("loadContract", () => {
         expect(issuesOf(c).map((i) => i.path)).toContain(path);
       });
     }
+  });
+
+  describe("1.7 response.maxRecords", () => {
+    it("accepts 1 and 500, defaults to absent", () => {
+      for (const n of [1, 500]) {
+        const c = minimalContract();
+        c.response.maxRecords = n;
+        expect(loadContract(c).response.maxRecords).toBe(n);
+      }
+      expect(loadContract(minimalContract()).response.maxRecords).toBeUndefined();
+    });
+    it("rejects 0, 501, 1.5 and a string, naming the path", () => {
+      for (const bad of [0, 501, 1.5, "5"]) {
+        const c = minimalContract();
+        c.response.maxRecords = bad;
+        expect(issuesOf(c).map((i) => i.path)).toContain("$.response.maxRecords");
+      }
+    });
   });
 
   describe("1.3 tool name", () => {

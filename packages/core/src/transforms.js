@@ -1,5 +1,5 @@
 /**
- * The six contract transforms. Each is total: for a value of its declared input
+ * The seven contract transforms. Each is total: for a value of its declared input
  * type it returns the output type or `null`; for any other value it returns
  * `null`. None of them throws.
  */
@@ -40,17 +40,31 @@ function epochMsToIso(v) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+/** True when year, month and day form a real calendar date (year 1 to 9999). */
+function isRealDate(year, month, day) {
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  return day <= daysInMonth;
+}
+
 /** @param {unknown} v */
 function yyyymmddToIso(v) {
   if (typeof v !== "string" || !/^\d{8}$/.test(v)) return null;
-  const year = Number(v.slice(0, 4));
-  const month = Number(v.slice(4, 6));
-  const day = Number(v.slice(6, 8));
-  if (year < 1 || month < 1 || month > 12 || day < 1) return null;
-  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
-  if (day > daysInMonth) return null;
-  return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
+  const ok = isRealDate(Number(v.slice(0, 4)), Number(v.slice(4, 6)), Number(v.slice(6, 8)));
+  return ok ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : null;
+}
+
+/**
+ * Leading `YYYY-MM-DD` of a string such as `2026-07-23T00:00:00`. The date must
+ * be real and must not be followed by another digit.
+ * @param {unknown} v
+ */
+function isoDate(v) {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?!\d)/.exec(v);
+  if (!m || !isRealDate(Number(m[1]), Number(m[2]), Number(m[3]))) return null;
+  return v.slice(0, 10);
 }
 
 export const TRANSFORMS = Object.freeze({
@@ -60,6 +74,7 @@ export const TRANSFORMS = Object.freeze({
   toNumber,
   epochMsToIso,
   yyyymmddToIso,
+  isoDate,
 });
 
 /**
