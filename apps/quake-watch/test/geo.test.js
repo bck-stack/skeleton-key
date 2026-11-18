@@ -10,6 +10,56 @@ import {
 } from "../public/geo.js";
 
 const RUNS = { numRuns: 150 };
+
+describe("overlay and tiles share one coordinate system", () => {
+  const viewportArb = fc.integer({ min: 280, max: 640 }).map((width) => ({ width, height: Math.round(width * 0.75) }));
+  const zoomArb = fc.integer({ min: 0, max: MAX_ZOOM });
+
+  it("the center coordinate lands on the middle of the viewport", () => {
+    fc.assert(
+      fc.property(point(80), zoomArb, viewportArb, (center, zoom, vp) => {
+        const v = toView(center, center, zoom, vp);
+        expect(v.x).toBeCloseTo(vp.width / 2, 6);
+        expect(v.y).toBeCloseTo(vp.height / 2, 6);
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it("a tile corner maps to the pixel where that tile is drawn", () => {
+    fc.assert(
+      fc.property(point(80), zoomArb, viewportArb, (center, zoom, vp) => {
+        const tiles = tilesFor(center, zoom, vp);
+        expect(tiles.length).toBeGreaterThan(0);
+        const n = 2 ** zoom;
+        for (const tile of tiles) {
+          // Geographic position of the tile's top-left corner, in the tiles' own scheme.
+          const corner = unproject(tile.x * 256, tile.y * 256, zoom);
+          const v = toView(center, corner, zoom, vp);
+          // The drawn tile may be a wrapped copy of the world, so compare modulo one world.
+          const world = 256 * n;
+          const dx = (((v.x - tile.left) % world) + world * 1.5) % world - world / 2;
+          expect(Math.abs(dx)).toBeLessThan(1e-6);
+          expect(v.y).toBeCloseTo(tile.top, 6);
+        }
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it("the tiles cover the whole viewport", () => {
+    fc.assert(
+      fc.property(point(80), zoomArb, viewportArb, (center, zoom, vp) => {
+        const tiles = tilesFor(center, zoom, vp);
+        const minLeft = Math.min(...tiles.map((t) => t.left));
+        const maxRight = Math.max(...tiles.map((t) => t.left + 256));
+        expect(minLeft).toBeLessThanOrEqual(1e-6);
+        expect(maxRight).toBeGreaterThanOrEqual(vp.width - 1e-6);
+      }),
+      { numRuns: 200 },
+    );
+  });
+});
 const lat = (max = 90) => fc.double({ min: -max, max, noNaN: true, noDefaultInfinity: true });
 const lon = fc.double({ min: -180, max: 180, noNaN: true, noDefaultInfinity: true });
 const point = (max = 90) => fc.record({ latitude: lat(max), longitude: lon });

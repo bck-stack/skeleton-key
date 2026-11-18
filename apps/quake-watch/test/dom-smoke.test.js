@@ -7,6 +7,8 @@
  */
 import { describe, it, expect } from "vitest";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { toView, DEFAULT_VIEWPORT } from "../public/geo.js";
 import { start, geolocationMessage } from "../public/app.js";
 import { renderMap, viewportFor, tileUrl } from "../public/map.js";
 import { createFakeDocument, createFakeWindow } from "./fake-dom.js";
@@ -495,6 +497,34 @@ describe("map (5.1 to 5.4)", () => {
   it("marker text appears inside the larger markers only", () => {
     const { container } = make(640);
     expect(container.querySelectorAll(".marker-text").map((t) => t.textContent)).toEqual(["6.2"]);
+  });
+
+  it("marker marks the center and every event with the same projection as the tiles", () => {
+    for (const width of [280, 360, 500, 640]) {
+      const { container, ctl } = make(width);
+      const vp = ctl.viewport;
+      const num = (node, name) => Number(node.getAttribute(name));
+      const mark = container.querySelectorAll(".center-mark").find((n) => n.tagName === "circle");
+      expect(num(mark, "cx")).toBeCloseTo(vp.width / 2, 6);
+      expect(num(mark, "cy")).toBeCloseTo(vp.height / 2, 6);
+      const markers = container.querySelectorAll(".marker");
+      for (const row of rows) {
+        const marker = markers.find((m) => m.getAttribute("data-key") === row.key);
+        const dot = marker.querySelectorAll(".marker-dot")[0];
+        const want = toView(center, row, ctl.zoom, vp);
+        expect(num(dot, "cx")).toBeCloseTo(want.x, 6);
+        expect(num(dot, "cy")).toBeCloseTo(want.y, 6);
+      }
+      // The overlay's viewBox is the tile coordinate frame: same size as the viewport.
+      expect(container.querySelectorAll(".map-overlay")[0].getAttribute("viewBox")).toBe(`0 0 ${vp.width} ${vp.height}`);
+    }
+  });
+
+  it("the stylesheet caps the map box at the widest viewport, so the SVG is never scaled away from the tiles", () => {
+    const css = readFileSync(fileURLToPath(new URL("../public/style.css", import.meta.url)), "utf8");
+    const block = css.match(/\n\.map \{([^}]*)\}/)[1];
+    expect(block).toMatch(new RegExp(`max-inline-size:\\s*${DEFAULT_VIEWPORT.width}px`));
+    expect(block).toMatch(/margin-inline:\s*auto/);
   });
 
   it("selecting null clears the ring", () => {

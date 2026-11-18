@@ -1,6 +1,6 @@
 # Verification: Quake Watch
 
-State on 2026-11-19. `npm test` passes with no network access (36 files, 1013 tests). This file records what was checked, how, and what was not.
+State on 2026-11-19. `npm test` passes with no network access (36 files, 1018 tests). This file records what was checked, how, and what was not.
 
 ## Requirement to test
 
@@ -47,6 +47,16 @@ Files are in `apps/quake-watch/test/` unless a path is given. QW-P numbers are i
 | 7.2 | `worker.test.js` "adds no dependency to the root package.json"; `readme.test.js` |
 | 7.3 | `html.test.js` (labels, `aria-live`); `dom-smoke.test.js` "the live region holds the count". Real use: manual |
 | 7.4 | The checklist below, plus `dom-smoke.test.js` for the wiring |
+
+## Bug fix: overlay drawn east of the tiles (2026-11-19)
+
+Found in a real browser (Chromium 1440x900) on the deployed page: searching "Izmir" drew the center mark and the 300 km circle about 150 km east of Izmir, while the tile labels were right.
+
+- Cause: `viewportFor` caps the drawing width at 640 px, but `.map` had `inline-size: 100%` and was about 790 px wide at that window size. The SVG layers use `viewBox="0 0 640 480"`, so the browser centered the 640 px drawing inside the wider box (about 75 px to the right), while the 256 px tiles stay at their absolute left offsets. At zoom 6 and latitude 38 one pixel is about 1.9 km, so 75 px is about 145 km. The projection in `geo.js` was correct.
+- Fix: `.map` in `style.css` now has `max-inline-size: 640px` and `margin-inline: auto`, so the box is never wider than the viewport that `map.js` draws. The measured width, the viewBox and the tile offsets are then the same pixels.
+- Tests added: `geo.test.js` "overlay and tiles share one coordinate system" (3 properties, 200 runs each: the center coordinate maps to the viewport middle; the geographic top-left corner of every tile, in the tiles' own scheme, maps to that tile's drawn `left`/`top`; the tiles cover the viewport). `dom-smoke.test.js`: the center mark and every event marker sit at `toView(...)` of the same viewport as the tiles, at four widths, and the stylesheet caps `.map` at `DEFAULT_VIEWPORT.width`.
+- Event markers, the circle path and the grid all call `toView` with the same center, zoom and viewport, so they were shifted by the same amount and are fixed by the same change.
+- Limit: the geometry tests were already correct and could not see this bug, because it came from layout (CSS). The CSS guard test checks the rule, not a rendered page. The check in a real browser at 1440x900 is still open: search "Izmir" and confirm the crosshair sits on Izmir.
 
 ## Not verified
 

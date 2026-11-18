@@ -400,6 +400,11 @@ input[aria-invalid="true"] {
 .map {
   position: relative;
   inline-size: 100%;
+  /* Must equal the widest viewport map.js draws (DEFAULT_VIEWPORT.width). A wider
+     box would let the SVG viewBox scale and center on its own while the 256 px
+     tiles stay at the left, so the circle and markers would drift off the tiles. */
+  max-inline-size: 640px;
+  margin-inline: auto;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 0.5rem;
